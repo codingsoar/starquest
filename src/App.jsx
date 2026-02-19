@@ -5,6 +5,7 @@ import useThemeStore from './stores/useThemeStore';
 import { useAuthStore } from './stores/useAuthStore';
 import StudentLoginPage from './pages/StudentLoginPage';
 import AdminLoginPage from './pages/AdminLoginPage';
+import StudentDashboardPage from './pages/StudentDashboardPage';
 import CourseSelectPage from './pages/CourseSelectPage';
 import StageMapPage from './pages/StageMapPage';
 import StagePage from './pages/StagePage';
@@ -15,7 +16,7 @@ import AdminPage from './pages/AdminPage';
 function ProtectedRoute({ children, adminOnly }) {
   const { user } = useAuthStore();
   if (!user) return <Navigate to="/" />;
-  if (adminOnly && user.role !== 'admin') return <Navigate to="/courses" />;
+  if (adminOnly && user.role !== 'admin') return <Navigate to="/dashboard" />;
   return children;
 }
 
@@ -34,6 +35,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<StudentLoginPage />} />
             <Route path="/admin-login" element={<AdminLoginPage />} />
+            <Route path="/dashboard" element={<ProtectedRoute><StudentDashboardPage /></ProtectedRoute>} />
             <Route path="/courses" element={<ProtectedRoute><CourseSelectPage /></ProtectedRoute>} />
             <Route path="/course/:courseId" element={<ProtectedRoute><StageMapPage /></ProtectedRoute>} />
             <Route path="/course/:courseId/stage/:stageId" element={<ProtectedRoute><StagePage /></ProtectedRoute>} />

@@ -14,6 +14,10 @@ export default function CourseSelectPage() {
     const { isDark, toggleTheme } = useThemeStore();
 
     const studentStars = totalStars[user?.studentId] || 0;
+    const assignedCourseIds = user?.courseIds || [];
+    const visibleCourses = user?.role === 'student'
+        ? courses.filter(course => assignedCourseIds.includes(course.id))
+        : courses;
 
     return (
         <div className="min-h-screen p-4 md:p-8" style={{ background: 'var(--sq-bg)', color: 'var(--sq-text)' }}>
@@ -39,7 +43,7 @@ export default function CourseSelectPage() {
 
                 {/* 과목 카드들 */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {courses.map(course => {
+                    {visibleCourses.map(course => {
                         const completedStages = course.stages.filter(stage => {
                             const sp = useProgressStore.getState().progress?.[user?.studentId]?.[course.id]?.[stage.id];
                             return sp?.easy && sp?.normal && sp?.hard;
@@ -92,6 +96,13 @@ export default function CourseSelectPage() {
                         );
                     })}
                 </div>
+                {visibleCourses.length === 0 && (
+                    <Card className="sq-card">
+                        <CardBody className="p-6 text-center">
+                            <p style={{ color: 'var(--sq-muted)' }}>등록된 클래스(과목)가 없습니다. 관리자에게 문의하세요.</p>
+                        </CardBody>
+                    </Card>
+                )}
             </div>
         </div>
     );

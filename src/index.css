@@ -1,4 +1,29 @@
 @import "tailwindcss";
+
+@theme {
+  --color-primary: #00bbfa;
+  --color-secondary: #00f5d4;
+  --color-accent-purple: #9b5de5;
+  --color-accent-pink: #f15bb5;
+  --color-accent-yellow: #fee440;
+  --color-background-light: #f0f9ff;
+  --color-background-dark: #0f1e23;
+  --color-dark-text: #0c181d;
+  --color-light-text: #f8fbfc;
+
+  /* Admin Theme */
+  --color-admin-primary: #9b5de5;
+  --color-admin-secondary: #00bbf9;
+  --color-admin-pink: #f15bb5;
+  --color-admin-green: #00f5d4;
+  --color-admin-yellow: #fee440;
+  --color-admin-bg-light: #f7f6f8;
+  --color-admin-bg-dark: #121212;
+  --color-admin-card-dark: #1e1e24;
+
+  --font-display: "Manrope", "Lexend", sans-serif;
+}
+
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800;900&display=swap');
 
 /* ── 라이트 모드 (기본) ── */
@@ -19,15 +44,15 @@
 
 /* ── 다크 모드 ── */
 .dark {
-  --sq-bg: #112D4E;
-  --sq-surface: #1a3d5c;
+  --sq-bg: #0b1f33;
+  --sq-surface: #173653;
   --sq-primary: #5a9fd4;
   --sq-muted: #DBE2EF;
   --sq-text: #F9F7F7;
-  --sq-border: rgba(90, 159, 212, 0.2);
-  --sq-card-bg: rgba(26, 61, 92, 0.7);
-  --sq-card-border: rgba(90, 159, 212, 0.25);
-  --sq-input-border: rgba(90, 159, 212, 0.3);
+  --sq-border: rgba(120, 177, 226, 0.28);
+  --sq-card-bg: rgba(30, 67, 100, 0.92);
+  --sq-card-border: rgba(128, 185, 233, 0.42);
+  --sq-input-border: rgba(128, 185, 233, 0.45);
 }
 
 body {
@@ -147,6 +172,14 @@ body {
 .sq-card:hover {
   border-color: var(--sq-primary);
   box-shadow: 0 4px 24px rgba(63, 114, 175, 0.1);
+}
+
+.dark .sq-card {
+  box-shadow: 0 8px 24px rgba(3, 10, 20, 0.35);
+}
+
+.dark .sq-card:hover {
+  box-shadow: 0 10px 28px rgba(4, 16, 30, 0.5);
 }
 
 /* ── 버튼 오버라이드 ── */

@@ -1,0 +1,335 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../stores/useAuthStore';
+import { useProgressStore } from '../stores/useProgressStore';
+import { useStageStore } from '../stores/useStageStore';
+import { Button } from '@heroui/react';
+
+export default function StudentDashboardPage() {
+    const navigate = useNavigate();
+    const { user, logout } = useAuthStore();
+    const { getStudentProgress } = useProgressStore();
+    const { courses } = useStageStore();
+
+    // Mock Data for Dashboard (Replace with real data from stores as needed)
+    const [xp, setXP] = useState(12450);
+    const [level, setLevel] = useState(12);
+    const [nextLevelXP, setNextLevelXP] = useState(13000);
+    const streak = 14;
+    const globalRank = 42;
+    const completedCourses = 8;
+
+    const progressPercentage = (xp / nextLevelXP) * 100;
+
+    useEffect(() => {
+        // If real data logic exists, update state here
+    }, [user]);
+
+    const handleLogout = () => {
+        logout();
+        navigate('/');
+    };
+
+    return (
+        <div className="flex h-screen overflow-hidden bg-background-light text-dark-text font-display transition-colors duration-300">
+            {/* Sidebar Navigation */}
+            <aside className="hidden md:flex flex-col w-24 lg:w-64 h-full bg-white border-r border-accent-purple/20 flex-shrink-0 z-20 transition-all duration-300">
+                <div className="flex items-center justify-center lg:justify-start lg:px-8 h-20">
+                    <div className="size-8 text-primary">
+                        <svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M44 11.2727C44 14.0109 39.8386 16.3957 33.69 17.6364C39.8386 18.877 44 21.2618 44 24C44 26.7382 39.8386 29.123 33.69 30.3636C39.8386 31.6043 44 33.9891 44 36.7273C44 40.7439 35.0457 44 24 44C12.9543 44 4 40.7439 4 36.7273C4 33.9891 8.16144 31.6043 14.31 30.3636C8.16144 29.123 4 26.7382 4 24C4 21.2618 8.16144 18.877 14.31 17.6364C8.16144 16.3957 4 14.0109 4 11.2727C4 7.25611 12.9543 4 24 4C35.0457 4 44 7.25611 44 11.2727Z" fill="currentColor"></path>
+                        </svg>
+                    </div>
+                    <span className="hidden lg:block ml-3 font-bold text-xl tracking-tight text-slate-800">LevelUp</span>
+                </div>
+
+                <nav className="flex-1 flex flex-col gap-2 p-4">
+                    <a className="flex items-center gap-4 px-4 py-3 rounded-xl bg-primary/10 text-primary font-medium transition-all group" href="#">
+                        <span className="material-symbols-outlined group-hover:scale-110 transition-transform">dashboard</span>
+                        <span className="hidden lg:block">Dashboard</span>
+                    </a>
+                    <button onClick={() => navigate('/courses')} className="flex items-center gap-4 px-4 py-3 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-all group w-full text-left">
+                        <span className="material-symbols-outlined group-hover:scale-110 transition-transform">school</span>
+                        <span className="hidden lg:block">My Courses</span>
+                    </button>
+                    <a className="flex items-center gap-4 px-4 py-3 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-all group" href="#">
+                        <span className="material-symbols-outlined group-hover:scale-110 transition-transform">menu_book</span>
+                        <span className="hidden lg:block">My Class</span>
+                        <span className="hidden lg:flex ml-auto bg-accent-pink text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(241,91,181,0.5)]">3</span>
+                    </a>
+                    <a className="flex items-center gap-4 px-4 py-3 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-all group" href="#">
+                        <span className="material-symbols-outlined group-hover:scale-110 transition-transform">emoji_events</span>
+                        <span className="hidden lg:block">Leaderboard</span>
+                    </a>
+                    <a className="flex items-center gap-4 px-4 py-3 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-all group" href="#">
+                        <span className="material-symbols-outlined group-hover:scale-110 transition-transform">storefront</span>
+                        <span className="hidden lg:block">Marketplace</span>
+                    </a>
+                </nav>
+
+                <div className="p-4 border-t border-accent-purple/20">
+                    <button onClick={() => navigate('/profile')} className="flex items-center gap-4 px-4 py-3 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-all group w-full text-left">
+                        <span className="material-symbols-outlined group-hover:rotate-90 transition-transform">settings</span>
+                        <span className="hidden lg:block">Settings</span>
+                    </button>
+                    <div className="mt-4 flex items-center gap-3 px-2 lg:px-4 cursor-pointer" onClick={handleLogout} title="Click to Logout">
+                        <div className="relative size-10 rounded-full bg-cover bg-center ring-2 ring-primary/50" style={{ backgroundImage: "url('https://ui-avatars.com/api/?name=" + (user?.name || 'User') + "&background=random')" }}>
+                            <div className="absolute bottom-0 right-0 size-3 bg-secondary border-2 border-white rounded-full"></div>
+                        </div>
+                        <div className="hidden lg:flex flex-col">
+                            <span className="text-sm font-bold text-slate-900">{user?.name || 'Student'}</span>
+                            <span className="text-xs text-slate-500">Level {level} Sorcerer</span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            {/* Main Content */}
+            <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
+                <header className="flex items-center justify-between px-6 py-4 bg-white/80 backdrop-blur-md sticky top-0 z-10 border-b border-accent-pink/20">
+                    <div className="md:hidden flex items-center gap-3">
+                        <button className="p-2 -ml-2 rounded-lg text-slate-500 hover:bg-slate-100">
+                            <span className="material-symbols-outlined">menu</span>
+                        </button>
+                        <span className="font-bold text-lg">LevelUp</span>
+                    </div>
+                    <div className="hidden md:flex flex-1 max-w-xl mx-auto">
+                        <div className="relative w-full group">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors material-symbols-outlined">search</span>
+                            <input className="w-full bg-slate-100 border-none rounded-full py-3 pl-12 pr-4 text-sm focus:ring-2 focus:ring-primary placeholder-slate-400 transition-shadow outline-none" placeholder="Search for courses, quests, or friends..." type="text" />
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3 md:gap-4 ml-auto">
+                        <button className="relative p-2 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors group">
+                            <span className="material-symbols-outlined text-slate-600 group-hover:text-primary">notifications</span>
+                            <span className="absolute top-2 right-2 size-2 bg-accent-pink rounded-full animate-pulse"></span>
+                        </button>
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-accent-yellow/50">
+                            <span className="material-symbols-outlined text-accent-yellow text-[20px] drop-shadow-[0_0_5px_rgba(254,228,64,0.5)]">bolt</span>
+                            <span className="font-bold text-sm">{xp.toLocaleString()} XP</span>
+                        </div>
+                    </div>
+                </header>
+
+                <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 pb-20 scroll-smooth">
+                    {/* Welcome Section */}
+                    <section className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                        <div className="xl:col-span-2 bg-white rounded-lg p-6 md:p-8 relative overflow-hidden shadow-card border border-accent-purple/30">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                            <div className="absolute bottom-0 left-0 w-48 h-48 bg-accent-pink/10 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none"></div>
+
+                            <div className="relative z-10">
+                                <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome back, {user?.name || 'Student'}! 👋</h1>
+                                <p className="text-slate-500 mb-8">You are <span className="text-primary font-bold">{(nextLevelXP - xp).toLocaleString()} XP</span> away from reaching Level {level + 1}.</p>
+
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex justify-between items-end mb-1">
+                                        <span className="text-sm font-semibold uppercase tracking-wider text-slate-500">Level {level} Progress</span>
+                                        <span className="text-sm font-bold text-primary">{xp.toLocaleString()} / {nextLevelXP.toLocaleString()} XP</span>
+                                    </div>
+                                    <div className="h-4 w-full bg-slate-100 rounded-full overflow-visible shadow-inner">
+                                        <div className="h-full bg-primary rounded-full relative xp-bar-glow transition-all duration-1000 ease-out" style={{ width: `${progressPercentage}%` }}>
+                                            <div className="absolute top-0 right-0 bottom-0 w-full bg-gradient-to-l from-white/30 to-transparent"></div>
+                                            <div className="absolute -right-1.5 -top-1.5 w-7 h-7 bg-secondary/30 rounded-full blur-sm"></div>
+                                            <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-3 h-3 bg-white rounded-full shadow-[0_0_10px_#00f5d4]"></div>
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-right mt-1 text-slate-400">Next reward: <span className="text-accent-purple font-medium">Master Sorcerer Badge</span></p>
+                                </div>
+
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
+                                    <div className="bg-slate-50 p-4 rounded-xl flex flex-col gap-1 border border-accent-pink/20 hover:border-accent-pink/50 transition-colors">
+                                        <span className="text-xs uppercase tracking-wide text-slate-500">Streak</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-orange-500">local_fire_department</span>
+                                            <span className="text-xl font-bold">{streak} Days</span>
+                                        </div>
+                                    </div>
+                                    <div className="bg-slate-50 p-4 rounded-xl flex flex-col gap-1 border border-accent-yellow/20 hover:border-accent-yellow/50 transition-colors">
+                                        <span className="text-xs uppercase tracking-wide text-slate-500">Total XP</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-accent-yellow">star</span>
+                                            <span className="text-xl font-bold">{(xp / 1000).toFixed(1)}k</span>
+                                        </div>
+                                    </div>
+                                    <div className="bg-slate-50 p-4 rounded-xl flex flex-col gap-1 border border-primary/20 hover:border-primary/50 transition-colors">
+                                        <span className="text-xs uppercase tracking-wide text-slate-500">Global Rank</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-secondary">public</span>
+                                            <span className="text-xl font-bold">#{globalRank}</span>
+                                        </div>
+                                    </div>
+                                    <div className="bg-slate-50 p-4 rounded-xl flex flex-col gap-1 border border-secondary/20 hover:border-secondary/50 transition-colors">
+                                        <span className="text-xs uppercase tracking-wide text-slate-500">Completed</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="material-symbols-outlined text-secondary">check_circle</span>
+                                            <span className="text-xl font-bold">{completedCourses} Courses</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Daily Quests */}
+                        <div className="bg-white rounded-lg p-6 flex flex-col shadow-card border border-accent-pink/30">
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="font-bold text-lg flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-accent-purple">assignment</span>
+                                    Daily Quests
+                                </h2>
+                                <span className="text-xs font-medium bg-accent-purple/10 text-accent-purple px-2 py-1 rounded-full border border-accent-purple/20">Resets in 4h</span>
+                            </div>
+                            <div className="flex-1 flex flex-col gap-4">
+                                <div className="flex items-center gap-4 p-3 rounded-xl bg-slate-50 opacity-60 border border-slate-200 transition-all hover:opacity-80">
+                                    <div className="size-6 rounded-full bg-secondary flex items-center justify-center text-slate-900 shadow-[0_0_10px_#00f5d4]">
+                                        <span className="material-symbols-outlined text-sm font-bold">check</span>
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-sm font-medium line-through decoration-slate-400">Login 3 days in a row</p>
+                                        <p className="text-xs text-secondary">+50 XP</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-4 p-3 rounded-xl bg-slate-50 border-l-4 border-primary relative overflow-hidden shadow-sm hover:translate-x-1 transition-transform">
+                                    <div className="size-6 rounded-full border-2 border-slate-300"></div>
+                                    <div className="flex-1">
+                                        <p className="text-sm font-medium">Score 80% on Python Basics</p>
+                                        <div className="flex justify-between items-center mt-1">
+                                            <div className="h-1.5 w-24 bg-slate-200 rounded-full overflow-hidden">
+                                                <div className="h-full bg-primary w-0 rounded-full"></div>
+                                            </div>
+                                            <p className="text-xs text-slate-400">0/1</p>
+                                        </div>
+                                    </div>
+                                    <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-1 rounded border border-primary/20">+100 XP</span>
+                                </div>
+                                <div className="flex items-center gap-4 p-3 rounded-xl bg-slate-50 border border-transparent hover:border-primary/30 transition-all hover:shadow-lg hover:shadow-primary/5">
+                                    <div className="size-6 rounded-full border-2 border-slate-300"></div>
+                                    <div className="flex-1">
+                                        <p className="text-sm font-medium">Complete 2 Modules</p>
+                                        <div className="flex justify-between items-center mt-1">
+                                            <div className="h-1.5 w-24 bg-slate-200 rounded-full overflow-hidden">
+                                                <div className="h-full bg-primary w-1/2 rounded-full shadow-[0_0_5px_#00bbf9]"></div>
+                                            </div>
+                                            <p className="text-xs text-slate-400">1/2</p>
+                                        </div>
+                                    </div>
+                                    <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-1 rounded border border-primary/20">+75 XP</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Continue Learning & Leaderboard */}
+                    <section className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                        <div className="lg:col-span-3">
+                            <div className="flex justify-between items-center mb-4 px-2">
+                                <h2 className="text-xl font-bold flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-primary">play_circle</span>
+                                    Continue Learning
+                                </h2>
+                                <button onClick={() => navigate('/courses')} className="text-sm font-medium text-primary hover:text-secondary hover:underline transition-colors">View All</button>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div onClick={() => navigate('/courses')} className="bg-white rounded-lg p-4 flex gap-4 hover:shadow-lg hover:shadow-primary/5 hover:scale-[1.01] transition-all duration-300 border border-accent-purple/20 group cursor-pointer">
+                                    <div className="w-24 h-24 md:w-32 md:h-32 rounded-lg bg-cover bg-center shrink-0 relative overflow-hidden" style={{ backgroundImage: "url('https://ui-avatars.com/api/?name=Data+Science&background=random')" }}>
+                                        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors"></div>
+                                        <div className="absolute bottom-2 left-2 p-1 rounded-full bg-black/50 backdrop-blur-sm border border-white/20">
+                                            <span className="material-symbols-outlined text-white text-[16px]">play_arrow</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-col justify-between flex-1 py-1">
+                                        <div>
+                                            <div className="flex justify-between items-start">
+                                                <span className="text-xs font-bold text-accent-purple bg-accent-purple/10 border border-accent-purple/20 px-2 py-0.5 rounded-full mb-2 inline-block">Data Science</span>
+                                                <span className="material-symbols-outlined text-slate-400 hover:text-primary text-[20px]">more_vert</span>
+                                            </div>
+                                            <h3 className="font-bold text-lg leading-tight mb-1 group-hover:text-primary transition-colors">Advanced Data Analytics</h3>
+                                            <p className="text-xs text-slate-500">Last played 2h ago</p>
+                                        </div>
+                                        <div className="mt-2">
+                                            <div className="flex justify-between text-xs mb-1">
+                                                <span className="font-medium text-slate-300">Progress</span>
+                                                <span className="font-bold text-primary">65%</span>
+                                            </div>
+                                            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                                                <div className="h-full bg-primary rounded-full shadow-[0_0_8px_#00bbf9]" style={{ width: '65%' }}></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div onClick={() => navigate('/courses')} className="bg-white rounded-lg p-4 flex gap-4 hover:shadow-lg hover:shadow-accent-pink/5 hover:scale-[1.01] transition-all duration-300 border border-accent-pink/20 group cursor-pointer">
+                                    <div className="w-24 h-24 md:w-32 md:h-32 rounded-lg bg-cover bg-center shrink-0 relative overflow-hidden" style={{ backgroundImage: "url('https://ui-avatars.com/api/?name=UX+Design&background=random')" }}>
+                                        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors"></div>
+                                    </div>
+                                    <div className="flex flex-col justify-between flex-1 py-1">
+                                        <div>
+                                            <div className="flex justify-between items-start">
+                                                <span className="text-xs font-bold text-accent-pink bg-accent-pink/10 border border-accent-pink/20 px-2 py-0.5 rounded-full mb-2 inline-block">Design</span>
+                                                <span className="material-symbols-outlined text-slate-400 hover:text-primary text-[20px]">more_vert</span>
+                                            </div>
+                                            <h3 className="font-bold text-lg leading-tight mb-1 group-hover:text-accent-pink transition-colors">UX Design Fundamentals</h3>
+                                            <p className="text-xs text-slate-500">Last played 1d ago</p>
+                                        </div>
+                                        <div className="mt-2">
+                                            <div className="flex justify-between text-xs mb-1">
+                                                <span className="font-medium text-slate-300">Progress</span>
+                                                <span className="font-bold text-primary">12%</span>
+                                            </div>
+                                            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                                                <div className="h-full bg-primary rounded-full shadow-[0_0_8px_#00bbf9]" style={{ width: '12%' }}></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Top Learners */}
+                        <div className="lg:col-span-1 bg-white rounded-lg p-6 flex flex-col shadow-card border border-accent-yellow/30">
+                            <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-accent-yellow">trophy</span>
+                                Top Learners
+                            </h2>
+                            <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group">
+                                    <span className="font-bold text-accent-yellow w-4 text-center drop-shadow-[0_0_5px_rgba(254,228,64,0.8)]">1</span>
+                                    <div className="size-8 rounded-full bg-cover bg-center ring-2 ring-accent-yellow/50 group-hover:scale-110 transition-transform" style={{ backgroundImage: "url('https://ui-avatars.com/api/?name=Sarah+J&background=random')" }}></div>
+                                    <div className="flex-1">
+                                        <p className="text-sm font-bold">Sarah J.</p>
+                                        <p className="text-xs text-slate-500">14,200 XP</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group">
+                                    <span className="font-bold text-slate-400 w-4 text-center">2</span>
+                                    <div className="size-8 rounded-full bg-cover bg-center group-hover:scale-110 transition-transform" style={{ backgroundImage: "url('https://ui-avatars.com/api/?name=Mike+T&background=random')" }}></div>
+                                    <div className="flex-1">
+                                        <p className="text-sm font-bold">Mike T.</p>
+                                        <p className="text-xs text-slate-500">13,850 XP</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group">
+                                    <span className="font-bold text-orange-700 w-4 text-center">3</span>
+                                    <div className="size-8 rounded-full bg-cover bg-center group-hover:scale-110 transition-transform" style={{ backgroundImage: "url('https://ui-avatars.com/api/?name=David+L&background=random')" }}></div>
+                                    <div className="flex-1">
+                                        <p className="text-sm font-bold">David L.</p>
+                                        <p className="text-xs text-slate-500">13,100 XP</p>
+                                    </div>
+                                </div>
+                                <div className="h-px bg-slate-200 my-2"></div>
+                                <div className="flex items-center gap-3 p-2 rounded-xl bg-primary/5 border border-primary/20">
+                                    <span className="font-bold text-primary w-4 text-center">42</span>
+                                    <div className="size-8 rounded-full bg-cover bg-center ring-2 ring-primary shadow-[0_0_10px_#00bbf9]" style={{ backgroundImage: "url('https://ui-avatars.com/api/?name=" + (user?.name || 'You') + "&background=random')" }}></div>
+                                    <div className="flex-1">
+                                        <p className="text-sm font-bold">You</p>
+                                        <p className="text-xs text-primary">{xp.toLocaleString()} XP</p>
+                                    </div>
+                                    <span className="material-symbols-outlined text-primary text-sm animate-bounce">arrow_upward</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </main>
+        </div>
+    );
+}

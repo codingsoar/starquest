@@ -7,7 +7,7 @@ const useThemeStore = create(
             isDark: false,
             toggleTheme: () => set({ isDark: !get().isDark }),
         }),
-        { name: 'starquest-theme' }
+        { name: 'starquest-theme', version: 2 }
     )
 );
 

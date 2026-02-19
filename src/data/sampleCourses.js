@@ -273,9 +273,9 @@ export const themePresets = {
 
 // 기본 학생 데이터
 export const defaultStudents = [
-    { studentId: '20101', name: '김민수' },
-    { studentId: '20102', name: '이서연' },
-    { studentId: '20103', name: '박지호' },
-    { studentId: '20104', name: '최유진' },
-    { studentId: '20105', name: '정하늘' },
+    { studentId: '20101', name: '김민수', password: '1234', courseIds: ['course-1'] },
+    { studentId: '20102', name: '이서연', password: '1234', courseIds: ['course-1'] },
+    { studentId: '20103', name: '박지호', password: '1234', courseIds: ['course-1'] },
+    { studentId: '20104', name: '최유진', password: '1234', courseIds: ['course-2'] },
+    { studentId: '20105', name: '정하늘', password: '1234', courseIds: ['course-2'] },
 ];
