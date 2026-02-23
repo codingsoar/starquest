@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useProgressStore } from '../stores/useProgressStore';
@@ -137,25 +137,100 @@ export default function StudentDashboardPage() {
     );
 
     const VideoView = ({ mission, onComplete }) => {
-        const [watched, setWatched] = useState(false);
         const [quizStarted, setQuizStarted] = useState(false);
         const [currentQ, setCurrentQ] = useState(0);
         const [answers, setAnswers] = useState({});
         const [showResult, setShowResult] = useState(false);
+        const [videoEnded, setVideoEnded] = useState(false);
+        const playerContainerRef = useRef(null);
+        const playerRef = useRef(null);
         const questions = mission.quizQuestions || [];
+        const hasQuiz = questions.length > 0;
+
+        // Parse YouTube embed URL to extract videoId and params
+        const parseYouTubeUrl = (url) => {
+            if (!url) return { videoId: '', playerVars: {} };
+            const idMatch = url.match(/embed\/([^?&/]+)/);
+            const videoId = idMatch ? idMatch[1] : '';
+            const playerVars = {};
+            try {
+                const u = new URL(url);
+                u.searchParams.forEach((v, k) => { if (k !== 'si') playerVars[k] = v; });
+            } catch (e) { /* ignore */ }
+            return { videoId, playerVars };
+        };
+
+        // YouTube IFrame API: detect video end for non-quiz missions
+        useEffect(() => {
+            if (hasQuiz || quizStarted) return;
+            const { videoId, playerVars } = parseYouTubeUrl(mission.videoUrl);
+            if (!videoId) return;
+
+            const initPlayer = () => {
+                if (!playerContainerRef.current) return;
+                if (playerRef.current) { try { playerRef.current.destroy(); } catch (e) { } }
+                playerRef.current = new window.YT.Player(playerContainerRef.current, {
+                    videoId,
+                    playerVars: { ...playerVars, rel: 0 },
+                    events: {
+                        onStateChange: (event) => {
+                            if (event.data === window.YT.PlayerState.ENDED) {
+                                setVideoEnded(true);
+                            }
+                        }
+                    }
+                });
+            };
+
+            if (window.YT && window.YT.Player) {
+                initPlayer();
+            } else {
+                if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+                    const tag = document.createElement('script');
+                    tag.src = 'https://www.youtube.com/iframe_api';
+                    document.head.appendChild(tag);
+                }
+                const prevCb = window.onYouTubeIframeAPIReady;
+                window.onYouTubeIframeAPIReady = () => {
+                    if (prevCb) prevCb();
+                    initPlayer();
+                };
+            }
+
+            return () => {
+                if (playerRef.current) { try { playerRef.current.destroy(); } catch (e) { } playerRef.current = null; }
+            };
+        }, [hasQuiz, quizStarted, mission.videoUrl]);
 
         if (!quizStarted) {
             return (
                 <div className="space-y-6">
-                    <div className="aspect-video rounded-xl overflow-hidden bg-slate-900 border border-slate-200 shadow-xl">
-                        <iframe src={mission.videoUrl} className="w-full h-full" allowFullScreen />
-                    </div>
+                    {hasQuiz ? (
+                        <div className="aspect-video rounded-xl overflow-hidden bg-slate-900 border border-slate-200 shadow-xl">
+                            <iframe src={mission.videoUrl} className="w-full h-full" allowFullScreen />
+                        </div>
+                    ) : (
+                        <div className="aspect-video rounded-xl overflow-hidden bg-slate-900 border border-slate-200 shadow-xl">
+                            <div ref={playerContainerRef} className="w-full h-full" />
+                        </div>
+                    )}
                     <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200">
-                        <label className="flex items-center gap-2 cursor-pointer text-slate-600">
-                            <input type="checkbox" checked={watched} onChange={e => setWatched(e.target.checked)} className="size-4" />
-                            I have watched the video
-                        </label>
-                        <Button color="primary" isDisabled={!watched} onPress={() => setQuizStarted(true)}>Take Quiz →</Button>
+                        {hasQuiz ? (
+                            <>
+                                <p className="text-sm text-slate-400">영상을 시청한 후 퀴즈를 풀어주세요.</p>
+                                <Button color="primary" onPress={() => setQuizStarted(true)}>Take Quiz →</Button>
+                            </>
+                        ) : videoEnded ? (
+                            <>
+                                <p className="text-sm text-green-600 font-semibold flex items-center gap-1"><Check size={16} /> 영상 시청 완료!</p>
+                                <Button color="success" className="text-white font-bold" onPress={onComplete}>Complete Mission →</Button>
+                            </>
+                        ) : (
+                            <>
+                                <p className="text-sm text-slate-400">🎬 영상을 끝까지 시청하면 완료 버튼이 나타납니다.</p>
+                                <Button color="default" isDisabled>Complete Mission</Button>
+                            </>
+                        )}
                     </div>
                 </div>
             );
@@ -206,7 +281,6 @@ export default function StudentDashboardPage() {
     };
 
     const TutorialView = ({ mission, onComplete }) => {
-        const [checked, setChecked] = useState(false);
         const hasHtml = !!mission.htmlContent;
         if (hasHtml) {
             return (
@@ -222,12 +296,8 @@ export default function StudentDashboardPage() {
                         </div>
                         <iframe srcDoc={mission.htmlContent} title="Tutorial" className="w-full h-[70vh]" sandbox="allow-scripts allow-forms allow-modals allow-popups" />
                     </Card>
-                    <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200 shadow-lg">
-                        <label className="flex items-center gap-3 cursor-pointer text-slate-700 font-semibold">
-                            <input type="checkbox" checked={checked} onChange={e => setChecked(e.target.checked)} className="size-5 accent-primary" />
-                            I have completed this tutorial mission
-                        </label>
-                        <Button color="success" className="text-white font-bold" isDisabled={!checked} onPress={onComplete}>Complete Mission →</Button>
+                    <div className="flex items-center justify-end p-4 bg-white rounded-xl border border-slate-200 shadow-lg">
+                        <Button color="success" className="text-white font-bold" onPress={onComplete}>Complete Mission →</Button>
                     </div>
                 </div>
             );
@@ -640,45 +710,82 @@ export default function StudentDashboardPage() {
                                     {/* Stages Layout */}
                                     <div className="flex flex-col gap-12 relative py-8">
                                         {/* Connector Line */}
-                                        <div className="absolute left-[50%] top-0 bottom-0 w-1 bg-slate-200/50 -translate-x-1/2 -z-0"></div>
+                                        <div className="absolute left-1/2 top-0 bottom-0 w-1 bg-slate-200/50 -translate-x-1/2 -z-0"></div>
 
                                         {selectedCourse.stages.map((stage, idx) => {
                                             const progress = getStudentProgress(user?.studentId, selectedCourse.id)?.[stage.id];
                                             const isDone = progress?.easy && progress?.normal && progress?.hard;
+                                            const isEven = idx % 2 === 0;
+                                            const isSelected = selectedStageId === stage.id;
+
+                                            const stageInfo = (
+                                                <div className={isEven ? 'text-right pr-6' : 'text-left pl-6'}>
+                                                    <h4 className="font-bold text-slate-800">{stage.title}</h4>
+                                                    <p className="text-xs text-slate-400 line-clamp-2">{stage.description}</p>
+                                                </div>
+                                            );
+
+                                            const missionPanel = isSelected ? (
+                                                <div className={`${isEven ? 'pl-6' : 'pr-6'}`}>
+                                                    <div className="p-4 bg-white rounded-2xl border border-primary/20 shadow-xl animate-in fade-in slide-in-from-top-4 duration-300">
+                                                        <div className="grid grid-cols-1 gap-3">
+                                                            {[
+                                                                { diff: 'easy', label: 'Video & Quiz', icon: <Play size={16} /> },
+                                                                { diff: 'normal', label: 'HTML Tutorial', icon: <BookOpen size={16} /> },
+                                                                { diff: 'hard', label: 'Final Practice', icon: <Upload size={16} /> }
+                                                            ].map(m => {
+                                                                const missionDone = progress?.[m.diff];
+                                                                return (
+                                                                    <button
+                                                                        key={m.diff}
+                                                                        onClick={() => handleMissionClick(m.diff)}
+                                                                        className={`flex items-center justify-between p-3 rounded-xl border transition-all ${missionDone ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-100 hover:border-primary'}`}
+                                                                    >
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className={`size-8 rounded-lg flex items-center justify-center ${missionDone ? 'bg-green-500 text-white' : 'bg-primary/20 text-primary'}`}>
+                                                                                {m.icon}
+                                                                            </div>
+                                                                            <div className="text-left">
+                                                                                <p className={`text-xs font-bold ${missionDone ? 'text-green-700' : 'text-slate-800'}`}>{m.label}</p>
+                                                                                <p className="text-[10px] text-slate-400 capitalize">{m.diff}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                        {missionDone && <Star size={14} className="text-amber-500 fill-amber-500" />}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : <div />;
+
                                             return (
-                                                <div key={stage.id} className={`flex items-center gap-8 z-10 ${idx % 2 === 0 ? 'flex-row' : 'flex-row-reverse'}`}>
-                                                    {/* Side Panel (Description) */}
-                                                    <div className="hidden md:block flex-1 text-right">
-                                                        {idx % 2 === 0 ? (
-                                                            <div className="pr-4">
-                                                                <h4 className="font-bold text-slate-800">{stage.title}</h4>
-                                                                <p className="text-xs text-slate-400 line-clamp-2">{stage.description}</p>
-                                                            </div>
-                                                        ) : null}
+                                                <div key={stage.id} className="grid grid-cols-[1fr_auto_1fr] items-center z-10">
+                                                    {/* Left Panel */}
+                                                    <div className="hidden md:block">
+                                                        {isEven ? stageInfo : missionPanel}
                                                     </div>
 
-                                                    {/* Center Node (Stage Indicator) */}
-                                                    <div className="flex flex-col items-center gap-2">
+                                                    {/* Center Node */}
+                                                    <div className="flex flex-col items-center gap-2 mx-4">
                                                         <div
                                                             onClick={() => handleStageClick(stage.id)}
-                                                            className={`size-16 rounded-full flex items-center justify-center cursor-pointer transition-all border-4 ${selectedStageId === stage.id ? 'scale-110 shadow-2xl' : 'scale-100'} ${isDone ? 'bg-green-500 border-green-200 text-white' : 'bg-white border-slate-200'}`}
+                                                            className={`size-16 rounded-full flex items-center justify-center cursor-pointer transition-all border-4 ${isSelected ? 'scale-110 shadow-2xl' : 'scale-100'} ${isDone ? 'bg-green-500 border-green-200 text-white' : 'bg-white border-slate-200'}`}
                                                         >
                                                             {isDone ? <Check size={32} strokeWidth={3} /> : <span className="text-xl font-black text-slate-300">{idx + 1}</span>}
                                                         </div>
                                                         <span className="md:hidden font-bold text-xs text-slate-500">{stage.title}</span>
                                                     </div>
 
-                                                    {/* Side Panel (Missions) */}
-                                                    <div className="flex-1">
-                                                        {idx % 2 !== 0 ? (
-                                                            <div className="pl-4 hidden md:block mb-4">
-                                                                <h4 className="font-bold text-slate-800 text-left">{stage.title}</h4>
-                                                                <p className="text-xs text-slate-400 line-clamp-2 text-left">{stage.description}</p>
-                                                            </div>
-                                                        ) : null}
+                                                    {/* Right Panel */}
+                                                    <div className="hidden md:block">
+                                                        {isEven ? missionPanel : stageInfo}
+                                                    </div>
 
-                                                        {selectedStageId === stage.id && (
-                                                            <div className={`p-4 bg-white rounded-2xl border border-primary/20 shadow-xl animate-in fade-in slide-in-from-top-4 duration-300 max-w-sm ${idx % 2 !== 0 ? 'ml-auto' : ''}`}>
+                                                    {/* Mobile: show missions below */}
+                                                    {isSelected && (
+                                                        <div className="md:hidden col-span-3 mt-4">
+                                                            <div className="p-4 bg-white rounded-2xl border border-primary/20 shadow-xl">
                                                                 <div className="grid grid-cols-1 gap-3">
                                                                     {[
                                                                         { diff: 'easy', label: 'Video & Quiz', icon: <Play size={16} /> },
@@ -707,8 +814,8 @@ export default function StudentDashboardPage() {
                                                                     })}
                                                                 </div>
                                                             </div>
-                                                        )}
-                                                    </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             );
                                         })}

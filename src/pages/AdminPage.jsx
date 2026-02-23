@@ -759,7 +759,9 @@ const MissionEditorModal = ({ isOpen, onClose, mission, onSave, difficulty }) =>
         taskDescription: '',
         tutorialSteps: [],
         htmlContent: '',
-        htmlFileName: ''
+        htmlFileName: '',
+        hasQuiz: false,
+        quizQuestions: []
     });
     const [uploadError, setUploadError] = useState('');
 
@@ -773,7 +775,9 @@ const MissionEditorModal = ({ isOpen, onClose, mission, onSave, difficulty }) =>
                 taskDescription: mission.taskDescription || '',
                 tutorialSteps: mission.tutorialSteps || [],
                 htmlContent: mission.htmlContent || '',
-                htmlFileName: mission.htmlFileName || ''
+                htmlFileName: mission.htmlFileName || '',
+                hasQuiz: (mission.quizQuestions && mission.quizQuestions.length > 0) || false,
+                quizQuestions: mission.quizQuestions || []
             });
         } else {
             setFormData({
@@ -784,7 +788,9 @@ const MissionEditorModal = ({ isOpen, onClose, mission, onSave, difficulty }) =>
                 taskDescription: '',
                 tutorialSteps: [],
                 htmlContent: '',
-                htmlFileName: ''
+                htmlFileName: '',
+                hasQuiz: false,
+                quizQuestions: []
             });
         }
         setUploadError('');
@@ -794,7 +800,20 @@ const MissionEditorModal = ({ isOpen, onClose, mission, onSave, difficulty }) =>
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSave({ ...mission, ...formData });
+        const finalData = { ...formData };
+        // If videoUrl contains an iframe embed code, extract the src attribute
+        if (finalData.videoUrl && finalData.videoUrl.includes('<iframe')) {
+            const srcMatch = finalData.videoUrl.match(/src=["']([^"']+)["']/);
+            if (srcMatch) {
+                finalData.videoUrl = srcMatch[1].replace(/&amp;/g, '&');
+            }
+        }
+        // Strip quizQuestions if quiz is disabled
+        if (!finalData.hasQuiz) {
+            finalData.quizQuestions = [];
+        }
+        delete finalData.hasQuiz;
+        onSave({ ...mission, ...finalData });
         onClose();
     };
 
@@ -852,15 +871,115 @@ const MissionEditorModal = ({ isOpen, onClose, mission, onSave, difficulty }) =>
                     </div>
 
                     {formData.type === 'video' && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-400 mb-1">Video URL (YouTube Embed)</label>
-                            <input
-                                type="text"
-                                value={formData.videoUrl}
-                                onChange={e => setFormData({ ...formData, videoUrl: e.target.value })}
-                                className="w-full bg-background-dark border border-white/10 rounded-xl px-4 py-2.5 text-white focus:border-admin-primary focus:outline-none"
-                                placeholder="https://www.youtube.com/embed/..."
-                            />
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400 mb-1">YouTube Embed Code or URL</label>
+                                <textarea
+                                    value={formData.videoUrl}
+                                    onChange={e => setFormData({ ...formData, videoUrl: e.target.value })}
+                                    className="w-full bg-background-dark border border-white/10 rounded-xl px-4 py-2.5 text-white focus:border-admin-primary focus:outline-none h-24 font-mono text-sm"
+                                    placeholder={'YouTube에서 "공유 > 퍼가기"로 복사한 <iframe> 코드를 붙여넣거나,\nhttps://www.youtube.com/embed/... URL을 입력하세요.'}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                    YouTube 공유 → 퍼가기(embed) 코드를 그대로 붙여넣으면 자동으로 URL이 추출됩니다.
+                                </p>
+                            </div>
+
+                            {/* Quiz Toggle */}
+                            <div className="p-4 bg-white/5 rounded-xl border border-white/10 space-y-4">
+                                <label className="flex items-center justify-between cursor-pointer">
+                                    <span className="text-sm font-medium text-gray-300">퀴즈 포함</span>
+                                    <div
+                                        onClick={() => setFormData(prev => ({
+                                            ...prev,
+                                            hasQuiz: !prev.hasQuiz,
+                                            quizQuestions: !prev.hasQuiz && prev.quizQuestions.length === 0
+                                                ? [{ question: '', options: ['', '', '', ''], answer: 0 }]
+                                                : prev.quizQuestions
+                                        }))}
+                                        className={`relative w-11 h-6 rounded-full transition-colors cursor-pointer ${formData.hasQuiz ? 'bg-admin-primary' : 'bg-gray-600'
+                                            }`}
+                                    >
+                                        <div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${formData.hasQuiz ? 'translate-x-5' : 'translate-x-0'
+                                            }`} />
+                                    </div>
+                                </label>
+
+                                {formData.hasQuiz && (
+                                    <div className="space-y-4">
+                                        <p className="text-xs text-gray-500">학생은 66% 이상 정답을 맞춰야 미션을 완료할 수 있습니다.</p>
+
+                                        {formData.quizQuestions.map((q, qIdx) => (
+                                            <div key={qIdx} className="p-4 bg-background-dark rounded-xl border border-white/10 space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-xs font-bold text-admin-primary">Q{qIdx + 1}</span>
+                                                    {formData.quizQuestions.length > 1 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setFormData(prev => ({
+                                                                ...prev,
+                                                                quizQuestions: prev.quizQuestions.filter((_, i) => i !== qIdx)
+                                                            }))}
+                                                            className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                                                        >삭제</button>
+                                                    )}
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    value={q.question}
+                                                    onChange={e => {
+                                                        const updated = [...formData.quizQuestions];
+                                                        updated[qIdx] = { ...updated[qIdx], question: e.target.value };
+                                                        setFormData(prev => ({ ...prev, quizQuestions: updated }));
+                                                    }}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-admin-primary focus:outline-none"
+                                                    placeholder="질문을 입력하세요"
+                                                />
+                                                <div className="space-y-2">
+                                                    {q.options.map((opt, oIdx) => (
+                                                        <div key={oIdx} className="flex items-center gap-2">
+                                                            <input
+                                                                type="radio"
+                                                                name={`quiz-answer-${qIdx}`}
+                                                                checked={q.answer === oIdx}
+                                                                onChange={() => {
+                                                                    const updated = [...formData.quizQuestions];
+                                                                    updated[qIdx] = { ...updated[qIdx], answer: oIdx };
+                                                                    setFormData(prev => ({ ...prev, quizQuestions: updated }));
+                                                                }}
+                                                                className="accent-green-500"
+                                                            />
+                                                            <input
+                                                                type="text"
+                                                                value={opt}
+                                                                onChange={e => {
+                                                                    const updated = [...formData.quizQuestions];
+                                                                    const newOpts = [...updated[qIdx].options];
+                                                                    newOpts[oIdx] = e.target.value;
+                                                                    updated[qIdx] = { ...updated[qIdx], options: newOpts };
+                                                                    setFormData(prev => ({ ...prev, quizQuestions: updated }));
+                                                                }}
+                                                                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm focus:border-admin-primary focus:outline-none"
+                                                                placeholder={`보기 ${oIdx + 1}`}
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                    <p className="text-[10px] text-gray-500 pl-6">● 라디오 버튼으로 정답을 선택하세요</p>
+                                                </div>
+                                            </div>
+                                        ))}
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData(prev => ({
+                                                ...prev,
+                                                quizQuestions: [...prev.quizQuestions, { question: '', options: ['', '', '', ''], answer: 0 }]
+                                            }))}
+                                            className="w-full py-2 rounded-xl border border-dashed border-white/20 text-sm text-gray-400 hover:border-admin-primary hover:text-admin-primary transition-colors"
+                                        >+ 질문 추가</button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 
