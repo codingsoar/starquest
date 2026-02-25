@@ -6,6 +6,7 @@ import { useProgressStore } from '../stores/useProgressStore';
 import { useStageStore } from '../stores/useStageStore';
 import useThemeStore from '../stores/useThemeStore';
 import { useMarketplaceStore } from '../stores/useMarketplaceStore';
+import { useNotificationStore } from '../stores/useNotificationStore';
 import DashboardCalendar from '../components/DashboardCalendar';
 // --- Sub-components for Views ---
 
@@ -2331,6 +2332,11 @@ export default function AdminPage() {
     const { submissions, totalStars, progress } = useProgressStore();
     const [currentView, setCurrentView] = useState('dashboard');
     const [searchTerm, setSearchTerm] = useState('');
+    const [showNotifPanel, setShowNotifPanel] = useState(false);
+    const [notifTarget, setNotifTarget] = useState('all');
+    const [notifTitle, setNotifTitle] = useState('');
+    const [notifMessage, setNotifMessage] = useState('');
+    const { notifications, sendNotification, deleteNotification } = useNotificationStore();
 
     // --- Data Aggregation for Dashboard ---
     const totalLearners = registeredStudents.length;
@@ -2488,9 +2494,11 @@ export default function AdminPage() {
                         </div>
                         {/* Actions */}
                         <div className="flex items-center gap-3">
-                            <button className="relative p-2.5 rounded-xl bg-admin-card-dark hover:bg-white/5 text-gray-400 hover:text-white transition-colors">
+                            <button onClick={() => setShowNotifPanel(!showNotifPanel)} className="relative p-2.5 rounded-xl bg-admin-card-dark hover:bg-white/5 text-gray-400 hover:text-white transition-colors">
                                 <span className="material-symbols-outlined text-[22px]">notifications</span>
-                                <span className="absolute top-2 right-2 h-2.5 w-2.5 rounded-full bg-admin-pink border-2 border-admin-card-dark"></span>
+                                {notifications.length > 0 && (
+                                    <span className="absolute top-1.5 right-1.5 h-4 w-4 rounded-full bg-admin-pink text-[9px] text-white font-bold flex items-center justify-center border-2 border-admin-card-dark">{notifications.length > 9 ? '9+' : notifications.length}</span>
+                                )}
                             </button>
                             <button className="p-2.5 rounded-xl bg-admin-card-dark hover:bg-white/5 text-gray-400 hover:text-white transition-colors">
                                 <span className="material-symbols-outlined text-[22px]">help</span>
@@ -2498,6 +2506,111 @@ export default function AdminPage() {
                         </div>
                     </div>
                 </header>
+
+                {/* Notification Panel */}
+                {showNotifPanel && (
+                    <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setShowNotifPanel(false)}>
+                        <div className="w-full max-w-md bg-admin-primary border-l border-white/10 h-full flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+                            {/* Header */}
+                            <div className="p-5 border-b border-white/10 flex items-center justify-between">
+                                <h3 className="text-white text-lg font-bold flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-admin-secondary">send</span>
+                                    알림 보내기
+                                </h3>
+                                <button onClick={() => setShowNotifPanel(false)} className="p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors">
+                                    <span className="material-symbols-outlined">close</span>
+                                </button>
+                            </div>
+
+                            {/* Send Form */}
+                            <div className="p-5 space-y-4 border-b border-white/10">
+                                {/* Target */}
+                                <div>
+                                    <label className="block text-xs text-gray-400 mb-1.5 font-medium">받는 대상</label>
+                                    <select
+                                        value={notifTarget}
+                                        onChange={e => setNotifTarget(e.target.value)}
+                                        className="w-full bg-[#1e1e2e] border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:ring-1 focus:ring-admin-secondary"
+                                    >
+                                        <option value="all" className="bg-[#1e1e2e] text-white">📢 전체 학생</option>
+                                        {courses.map(c => (
+                                            <option key={c.id} value={`class:${c.id}`} className="bg-[#1e1e2e] text-white">📚 {c.title} 수강생</option>
+                                        ))}
+                                        {registeredStudents.map(s => (
+                                            <option key={s.studentId} value={s.studentId} className="bg-[#1e1e2e] text-white">👤 {s.name} ({s.studentId})</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                {/* Title */}
+                                <div>
+                                    <label className="block text-xs text-gray-400 mb-1.5 font-medium">제목</label>
+                                    <input
+                                        value={notifTitle}
+                                        onChange={e => setNotifTitle(e.target.value)}
+                                        className="w-full bg-[#1e1e2e] border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:ring-1 focus:ring-admin-secondary"
+                                        placeholder="알림 제목"
+                                    />
+                                </div>
+                                {/* Message */}
+                                <div>
+                                    <label className="block text-xs text-gray-400 mb-1.5 font-medium">메시지</label>
+                                    <textarea
+                                        value={notifMessage}
+                                        onChange={e => setNotifMessage(e.target.value)}
+                                        className="w-full bg-[#1e1e2e] border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:ring-1 focus:ring-admin-secondary resize-none h-24"
+                                        placeholder="학생에게 보낼 메시지를 입력하세요..."
+                                    />
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        if (!notifTitle.trim() || !notifMessage.trim()) return;
+                                        const courseName = notifTarget.startsWith('class:') ? courses.find(c => c.id === notifTarget.replace('class:', ''))?.title : null;
+                                        sendNotification({ to: notifTarget, title: notifTitle, message: notifMessage, courseName });
+                                        setNotifTitle('');
+                                        setNotifMessage('');
+                                    }}
+                                    disabled={!notifTitle.trim() || !notifMessage.trim()}
+                                    className="w-full py-2.5 bg-admin-secondary text-white rounded-xl text-sm font-semibold hover:bg-admin-secondary/80 transition-all shadow-lg shadow-admin-secondary/20 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    <span className="material-symbols-outlined text-sm">send</span>
+                                    알림 전송
+                                </button>
+                            </div>
+
+                            {/* Sent History */}
+                            <div className="flex-1 overflow-y-auto p-5">
+                                <h4 className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">보낸 알림 ({notifications.length})</h4>
+                                {notifications.length === 0 && (
+                                    <div className="text-center text-gray-500 py-8 text-sm">보낸 알림이 없습니다.</div>
+                                )}
+                                <div className="space-y-2">
+                                    {notifications.map(n => (
+                                        <div key={n.id} className="bg-[#1e1e2e] rounded-xl p-3 border border-white/5 group">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-1.5 mb-1">
+                                                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-admin-secondary/20 text-admin-secondary font-medium">
+                                                            {n.to === 'all' ? '전체' : n.to.startsWith('class:') ? `📚 ${n.courseName || '수업'}` : `👤 ${n.to}`}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-white text-sm font-medium truncate">{n.title}</p>
+                                                    <p className="text-gray-400 text-xs mt-0.5 line-clamp-2">{n.message}</p>
+                                                    <p className="text-gray-600 text-[10px] mt-1">{new Date(n.timestamp).toLocaleString('ko-KR')}</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => deleteNotification(n.id)}
+                                                    className="p-1 rounded-lg hover:bg-red-500/20 text-gray-600 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                                                >
+                                                    <span className="material-symbols-outlined text-sm">delete</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Scrollable Content Area */}
                 <div className="flex-1 overflow-y-auto p-8 scroll-smooth">
