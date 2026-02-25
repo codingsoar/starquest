@@ -9,7 +9,7 @@ import { ChevronLeft, Star, Upload, ChevronRight, Check, Play, BookOpen } from '
 export default function StudentDashboardPage() {
     const navigate = useNavigate();
     const location = useLocation();
-    const { user, logout } = useAuthStore();
+    const { user, logout, registeredStudents } = useAuthStore();
     const { getStudentProgress, totalStars } = useProgressStore();
     const { courses } = useStageStore();
     const activeTab = useMemo(() => {
@@ -17,17 +17,19 @@ export default function StudentDashboardPage() {
         return tab === 'myClass' ? 'myClass' : 'dashboard';
     }, [location.search]);
 
-    // Mock Data for Dashboard (Replace with real data from stores as needed)
-    const xp = 12450;
-    const level = 12;
-    const nextLevelXP = 13000;
-    const streak = 14;
-    const globalRank = 42;
-    const completedCourses = 8;
-
     const myStars = totalStars[user?.studentId] || 0;
-    const progressPercentage = (xp / nextLevelXP) * 100;
-    const myClasses = courses;
+
+    // Star leaderboard from all registered students
+    const starLeaderboard = useMemo(() => {
+        return registeredStudents
+            .map(s => ({ studentId: s.studentId, name: s.name, stars: totalStars[s.studentId] || 0 }))
+            .sort((a, b) => b.stars - a.stars);
+    }, [registeredStudents, totalStars]);
+
+    const myRank = useMemo(() => {
+        const idx = starLeaderboard.findIndex(s => s.studentId === user?.studentId);
+        return idx >= 0 ? idx + 1 : '-';
+    }, [starLeaderboard, user?.studentId]);
 
     const getCourseCompletion = (courseId) => {
         if (!user?.studentId) return 0;
@@ -54,13 +56,22 @@ export default function StudentDashboardPage() {
     const [selectedStageId, setSelectedStageId] = useState(null);
     const [selectedDifficulty, setSelectedDifficulty] = useState(null);
 
-    // Sync tab changes with view resets
+    // Sync tab changes with view resets (or open a specific course from shortcut)
     useEffect(() => {
-        setCurrentView('list');
-        setSelectedCourseId(null);
-        setSelectedStageId(null);
-        setSelectedDifficulty(null);
-    }, [activeTab]);
+        const params = new URLSearchParams(location.search);
+        const openCourse = params.get('openCourse');
+        if (openCourse) {
+            setSelectedCourseId(openCourse);
+            setCurrentView('map');
+            setSelectedStageId(null);
+            setSelectedDifficulty(null);
+        } else {
+            setCurrentView('list');
+            setSelectedCourseId(null);
+            setSelectedStageId(null);
+            setSelectedDifficulty(null);
+        }
+    }, [activeTab, location.search]);
 
     const selectedCourse = useMemo(() => courses.find(c => c.id === selectedCourseId), [courses, selectedCourseId]);
     const selectedStage = useMemo(() => selectedCourse?.stages.find(s => s.id === selectedStageId), [selectedCourse, selectedStageId]);
@@ -353,7 +364,7 @@ export default function StudentDashboardPage() {
                     >
                         <span className="material-symbols-outlined group-hover:scale-110 transition-transform">menu_book</span>
                         <span className="hidden lg:block">My Class</span>
-                        <span className="hidden lg:flex ml-auto bg-accent-pink text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(241,91,181,0.5)]">{myClasses.length}</span>
+                        <span className="hidden lg:flex ml-auto bg-accent-pink text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(241,91,181,0.5)]">{courses.length}</span>
                     </button>
                     <button onClick={() => navigate('/marketplace')} className="flex items-center gap-4 px-4 py-3 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-all group w-full text-left">
                         <span className="material-symbols-outlined group-hover:scale-110 transition-transform">storefront</span>
@@ -407,221 +418,163 @@ export default function StudentDashboardPage() {
                 <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 pb-20 scroll-smooth">
                     {activeTab === 'dashboard' ? (
                         <>
-                            {/* Welcome Section */}
+                            {/* Welcome & Stats */}
                             <section className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                                 <div className="xl:col-span-2 bg-white rounded-lg p-6 md:p-8 relative overflow-hidden shadow-card border border-accent-purple/30">
                                     <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                                     <div className="absolute bottom-0 left-0 w-48 h-48 bg-accent-pink/10 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none"></div>
-
                                     <div className="relative z-10">
-                                        <h1 className="text-2xl md:text-3xl font-bold mb-2">Welcome back, {user?.name || 'Student'}! 👋</h1>
-                                        <p className="text-slate-500 mb-8">You are <span className="text-primary font-bold">{(nextLevelXP - xp).toLocaleString()} XP</span> away from reaching Level {level + 1}.</p>
-
-                                        <div className="flex flex-col gap-2">
-                                            <div className="flex justify-between items-end mb-1">
-                                                <span className="text-sm font-semibold uppercase tracking-wider text-slate-500">Level {level} Progress</span>
-                                                <span className="text-sm font-bold text-primary">{xp.toLocaleString()} / {nextLevelXP.toLocaleString()} XP</span>
-                                            </div>
-                                            <div className="h-4 w-full bg-slate-100 rounded-full overflow-visible shadow-inner">
-                                                <div className="h-full bg-primary rounded-full relative xp-bar-glow transition-all duration-1000 ease-out" style={{ width: `${progressPercentage}%` }}>
-                                                    <div className="absolute top-0 right-0 bottom-0 w-full bg-gradient-to-l from-white/30 to-transparent"></div>
-                                                    <div className="absolute -right-1.5 -top-1.5 w-7 h-7 bg-secondary/30 rounded-full blur-sm"></div>
-                                                    <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-3 h-3 bg-white rounded-full shadow-[0_0_10px_#00f5d4]"></div>
-                                                </div>
-                                            </div>
-                                            <p className="text-xs text-right mt-1 text-slate-400">Next reward: <span className="text-accent-purple font-medium">Master Sorcerer Badge</span></p>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-                                            <div className="bg-slate-50 p-4 rounded-xl flex flex-col gap-1 border border-accent-pink/20 hover:border-accent-pink/50 transition-colors">
-                                                <span className="text-xs uppercase tracking-wide text-slate-500">Streak</span>
+                                        <h1 className="text-2xl md:text-3xl font-bold mb-2">안녕하세요, {user?.name || '학생'}! 👋</h1>
+                                        <p className="text-slate-500 mb-8">오늘도 열심히 퀘스트를 수행하고 ⭐ 별을 모아보세요!</p>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <div className="bg-slate-50 p-4 rounded-xl flex flex-col gap-1 border border-amber-200 hover:border-amber-400 transition-colors">
+                                                <span className="text-xs uppercase tracking-wide text-slate-500">내 별</span>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="material-symbols-outlined text-orange-500">local_fire_department</span>
-                                                    <span className="text-xl font-bold">{streak} Days</span>
-                                                </div>
-                                            </div>
-                                            <div className="bg-slate-50 p-4 rounded-xl flex flex-col gap-1 border border-accent-yellow/20 hover:border-accent-yellow/50 transition-colors">
-                                                <span className="text-xs uppercase tracking-wide text-slate-500">Total XP</span>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="material-symbols-outlined text-accent-yellow">star</span>
-                                                    <span className="text-xl font-bold">{(xp / 1000).toFixed(1)}k</span>
+                                                    <Star size={20} className="text-amber-500 fill-amber-500" />
+                                                    <span className="text-xl font-bold text-amber-700">{myStars}</span>
                                                 </div>
                                             </div>
                                             <div className="bg-slate-50 p-4 rounded-xl flex flex-col gap-1 border border-primary/20 hover:border-primary/50 transition-colors">
-                                                <span className="text-xs uppercase tracking-wide text-slate-500">Global Rank</span>
+                                                <span className="text-xs uppercase tracking-wide text-slate-500">수강 중</span>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="material-symbols-outlined text-secondary">public</span>
-                                                    <span className="text-xl font-bold">#{globalRank}</span>
+                                                    <span className="material-symbols-outlined text-primary">school</span>
+                                                    <span className="text-xl font-bold">{courses.length}개 수업</span>
                                                 </div>
                                             </div>
                                             <div className="bg-slate-50 p-4 rounded-xl flex flex-col gap-1 border border-secondary/20 hover:border-secondary/50 transition-colors">
-                                                <span className="text-xs uppercase tracking-wide text-slate-500">Completed</span>
+                                                <span className="text-xs uppercase tracking-wide text-slate-500">내 순위</span>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="material-symbols-outlined text-secondary">check_circle</span>
-                                                    <span className="text-xl font-bold">{completedCourses} Courses</span>
+                                                    <span className="material-symbols-outlined text-secondary">leaderboard</span>
+                                                    <span className="text-xl font-bold">#{myRank}</span>
+                                                </div>
+                                            </div>
+                                            <div className="bg-slate-50 p-4 rounded-xl flex flex-col gap-1 border border-accent-pink/20 hover:border-accent-pink/50 transition-colors">
+                                                <span className="text-xs uppercase tracking-wide text-slate-500">전체 학생</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="material-symbols-outlined text-accent-pink">group</span>
+                                                    <span className="text-xl font-bold">{registeredStudents.length}명</span>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Daily Quests */}
-                                <div className="bg-white rounded-lg p-6 flex flex-col shadow-card border border-accent-pink/30">
-                                    <div className="flex justify-between items-center mb-6">
-                                        <h2 className="font-bold text-lg flex items-center gap-2">
-                                            <span className="material-symbols-outlined text-accent-purple">assignment</span>
-                                            Daily Quests
-                                        </h2>
-                                        <span className="text-xs font-medium bg-accent-purple/10 text-accent-purple px-2 py-1 rounded-full border border-accent-purple/20">Resets in 4h</span>
-                                    </div>
-                                    <div className="flex-1 flex flex-col gap-4">
-                                        <div className="flex items-center gap-4 p-3 rounded-xl bg-slate-50 opacity-60 border border-slate-200 transition-all hover:opacity-80">
-                                            <div className="size-6 rounded-full bg-secondary flex items-center justify-center text-slate-900 shadow-[0_0_10px_#00f5d4]">
-                                                <span className="material-symbols-outlined text-sm font-bold">check</span>
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="text-sm font-medium line-through decoration-slate-400">Login 3 days in a row</p>
-                                                <p className="text-xs text-secondary">+50 XP</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-4 p-3 rounded-xl bg-slate-50 border-l-4 border-primary relative overflow-hidden shadow-sm hover:translate-x-1 transition-transform">
-                                            <div className="size-6 rounded-full border-2 border-slate-300"></div>
-                                            <div className="flex-1">
-                                                <p className="text-sm font-medium">Score 80% on Python Basics</p>
-                                                <div className="flex justify-between items-center mt-1">
-                                                    <div className="h-1.5 w-24 bg-slate-200 rounded-full overflow-hidden">
-                                                        <div className="h-full bg-primary w-0 rounded-full"></div>
+                                {/* Star Leaderboard */}
+                                <div className="bg-white rounded-lg p-6 flex flex-col shadow-card border border-accent-yellow/30">
+                                    <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-accent-yellow">trophy</span>
+                                        별 랭킹
+                                    </h2>
+                                    <div className="flex flex-col gap-1 flex-1">
+                                        {starLeaderboard.slice(0, 5).map((student, idx) => {
+                                            const isMe = student.studentId === user?.studentId;
+                                            const rankColors = ['text-accent-yellow drop-shadow-[0_0_5px_rgba(254,228,64,0.8)]', 'text-slate-400', 'text-orange-700'];
+                                            return (
+                                                <div key={student.studentId} className={`flex items-center gap-3 p-2 rounded-xl transition-colors ${isMe ? 'bg-primary/5 border border-primary/20' : 'hover:bg-slate-50 cursor-pointer'}`}>
+                                                    <span className={`font-bold w-4 text-center ${rankColors[idx] || 'text-slate-400'}`}>{idx + 1}</span>
+                                                    <div className={`size-8 rounded-full bg-cover bg-center ${idx === 0 ? 'ring-2 ring-accent-yellow/50' : ''} ${isMe ? 'ring-2 ring-primary shadow-[0_0_10px_#00bbf9]' : ''}`} style={{ backgroundImage: `url('https://ui-avatars.com/api/?name=${encodeURIComponent(student.name)}&background=random')` }}></div>
+                                                    <div className="flex-1">
+                                                        <p className="text-sm font-bold">{isMe ? '나' : student.name}</p>
+                                                        <p className={`text-xs ${isMe ? 'text-primary' : 'text-slate-500'} flex items-center gap-1`}>
+                                                            <Star size={10} className="fill-amber-500 text-amber-500" />
+                                                            {student.stars}개
+                                                        </p>
                                                     </div>
-                                                    <p className="text-xs text-slate-400">0/1</p>
+                                                    {isMe && <span className="material-symbols-outlined text-primary text-sm">person</span>}
                                                 </div>
+                                            );
+                                        })}
+                                        {starLeaderboard.length === 0 && (
+                                            <div className="flex-1 flex items-center justify-center text-slate-400 text-sm py-8">
+                                                아직 데이터가 없습니다.
                                             </div>
-                                            <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-1 rounded border border-primary/20">+100 XP</span>
-                                        </div>
-                                        <div className="flex items-center gap-4 p-3 rounded-xl bg-slate-50 border border-transparent hover:border-primary/30 transition-all hover:shadow-lg hover:shadow-primary/5">
-                                            <div className="size-6 rounded-full border-2 border-slate-300"></div>
-                                            <div className="flex-1">
-                                                <p className="text-sm font-medium">Complete 2 Modules</p>
-                                                <div className="flex justify-between items-center mt-1">
-                                                    <div className="h-1.5 w-24 bg-slate-200 rounded-full overflow-hidden">
-                                                        <div className="h-full bg-primary w-1/2 rounded-full shadow-[0_0_5px_#00bbf9]"></div>
+                                        )}
+                                        {typeof myRank === 'number' && myRank > 5 && (
+                                            <>
+                                                <div className="h-px bg-slate-200 my-2"></div>
+                                                <div className="flex items-center gap-3 p-2 rounded-xl bg-primary/5 border border-primary/20">
+                                                    <span className="font-bold text-primary w-4 text-center">{myRank}</span>
+                                                    <div className="size-8 rounded-full bg-cover bg-center ring-2 ring-primary shadow-[0_0_10px_#00bbf9]" style={{ backgroundImage: `url('https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'Me')}&background=random')` }}></div>
+                                                    <div className="flex-1">
+                                                        <p className="text-sm font-bold">나</p>
+                                                        <p className="text-xs text-primary flex items-center gap-1">
+                                                            <Star size={10} className="fill-amber-500 text-amber-500" />
+                                                            {myStars}개
+                                                        </p>
                                                     </div>
-                                                    <p className="text-xs text-slate-400">1/2</p>
                                                 </div>
-                                            </div>
-                                            <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-1 rounded border border-primary/20">+75 XP</span>
-                                        </div>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             </section>
 
-                            {/* Continue Learning & Leaderboard */}
-                            <section className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                                <div className="lg:col-span-3">
-                                    <div className="flex justify-between items-center mb-4 px-2">
-                                        <h2 className="text-xl font-bold flex items-center gap-2">
-                                            <span className="material-symbols-outlined text-primary">play_circle</span>
-                                            Continue Learning
-                                        </h2>
-                                        <button onClick={() => navigate('/courses')} className="text-sm font-medium text-primary hover:text-secondary hover:underline transition-colors">View All</button>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div onClick={() => navigate('/courses')} className="bg-white rounded-lg p-4 flex gap-4 hover:shadow-lg hover:shadow-primary/5 hover:scale-[1.01] transition-all duration-300 border border-accent-purple/20 group cursor-pointer">
-                                            <div className="w-24 h-24 md:w-32 md:h-32 rounded-lg bg-cover bg-center shrink-0 relative overflow-hidden" style={{ backgroundImage: "url('https://ui-avatars.com/api/?name=Data+Science&background=random')" }}>
-                                                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors"></div>
-                                                <div className="absolute bottom-2 left-2 p-1 rounded-full bg-black/50 backdrop-blur-sm border border-white/20">
-                                                    <span className="material-symbols-outlined text-white text-[16px]">play_arrow</span>
-                                                </div>
-                                            </div>
-                                            <div className="flex flex-col justify-between flex-1 py-1">
-                                                <div>
-                                                    <div className="flex justify-between items-start">
-                                                        <span className="text-xs font-bold text-accent-purple bg-accent-purple/10 border border-accent-purple/20 px-2 py-0.5 rounded-full mb-2 inline-block">Data Science</span>
-                                                        <span className="material-symbols-outlined text-slate-400 hover:text-primary text-[20px]">more_vert</span>
-                                                    </div>
-                                                    <h3 className="font-bold text-lg leading-tight mb-1 group-hover:text-primary transition-colors">Advanced Data Analytics</h3>
-                                                    <p className="text-xs text-slate-500">Last played 2h ago</p>
-                                                </div>
-                                                <div className="mt-2">
-                                                    <div className="flex justify-between text-xs mb-1">
-                                                        <span className="font-medium text-slate-300">Progress</span>
-                                                        <span className="font-bold text-primary">65%</span>
-                                                    </div>
-                                                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                                                        <div className="h-full bg-primary rounded-full shadow-[0_0_8px_#00bbf9]" style={{ width: '65%' }}></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div onClick={() => navigate('/courses')} className="bg-white rounded-lg p-4 flex gap-4 hover:shadow-lg hover:shadow-accent-pink/5 hover:scale-[1.01] transition-all duration-300 border border-accent-pink/20 group cursor-pointer">
-                                            <div className="w-24 h-24 md:w-32 md:h-32 rounded-lg bg-cover bg-center shrink-0 relative overflow-hidden" style={{ backgroundImage: "url('https://ui-avatars.com/api/?name=UX+Design&background=random')" }}>
-                                                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors"></div>
-                                            </div>
-                                            <div className="flex flex-col justify-between flex-1 py-1">
-                                                <div>
-                                                    <div className="flex justify-between items-start">
-                                                        <span className="text-xs font-bold text-accent-pink bg-accent-pink/10 border border-accent-pink/20 px-2 py-0.5 rounded-full mb-2 inline-block">Design</span>
-                                                        <span className="material-symbols-outlined text-slate-400 hover:text-primary text-[20px]">more_vert</span>
-                                                    </div>
-                                                    <h3 className="font-bold text-lg leading-tight mb-1 group-hover:text-accent-pink transition-colors">UX Design Fundamentals</h3>
-                                                    <p className="text-xs text-slate-500">Last played 1d ago</p>
-                                                </div>
-                                                <div className="mt-2">
-                                                    <div className="flex justify-between text-xs mb-1">
-                                                        <span className="font-medium text-slate-300">Progress</span>
-                                                        <span className="font-bold text-primary">12%</span>
-                                                    </div>
-                                                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                                                        <div className="h-full bg-primary rounded-full shadow-[0_0_8px_#00bbf9]" style={{ width: '12%' }}></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Top Learners */}
-                                <div className="lg:col-span-1 bg-white rounded-lg p-6 flex flex-col shadow-card border border-accent-yellow/30">
-                                    <h2 className="font-bold text-lg mb-4 flex items-center gap-2">
-                                        <span className="material-symbols-outlined text-accent-yellow">trophy</span>
-                                        Top Learners
+                            {/* Class Shortcuts */}
+                            <section>
+                                <div className="flex justify-between items-center mb-4 px-2">
+                                    <h2 className="text-xl font-bold flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-primary">play_circle</span>
+                                        수업 바로가기
                                     </h2>
-                                    <div className="flex flex-col gap-1">
-                                        <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group">
-                                            <span className="font-bold text-accent-yellow w-4 text-center drop-shadow-[0_0_5px_rgba(254,228,64,0.8)]">1</span>
-                                            <div className="size-8 rounded-full bg-cover bg-center ring-2 ring-accent-yellow/50 group-hover:scale-110 transition-transform" style={{ backgroundImage: "url('https://ui-avatars.com/api/?name=Sarah+J&background=random')" }}></div>
-                                            <div className="flex-1">
-                                                <p className="text-sm font-bold">Sarah J.</p>
-                                                <p className="text-xs text-slate-500">14,200 XP</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group">
-                                            <span className="font-bold text-slate-400 w-4 text-center">2</span>
-                                            <div className="size-8 rounded-full bg-cover bg-center group-hover:scale-110 transition-transform" style={{ backgroundImage: "url('https://ui-avatars.com/api/?name=Mike+T&background=random')" }}></div>
-                                            <div className="flex-1">
-                                                <p className="text-sm font-bold">Mike T.</p>
-                                                <p className="text-xs text-slate-500">13,850 XP</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer group">
-                                            <span className="font-bold text-orange-700 w-4 text-center">3</span>
-                                            <div className="size-8 rounded-full bg-cover bg-center group-hover:scale-110 transition-transform" style={{ backgroundImage: "url('https://ui-avatars.com/api/?name=David+L&background=random')" }}></div>
-                                            <div className="flex-1">
-                                                <p className="text-sm font-bold">David L.</p>
-                                                <p className="text-xs text-slate-500">13,100 XP</p>
-                                            </div>
-                                        </div>
-                                        <div className="h-px bg-slate-200 my-2"></div>
-                                        <div className="flex items-center gap-3 p-2 rounded-xl bg-primary/5 border border-primary/20">
-                                            <span className="font-bold text-primary w-4 text-center">42</span>
-                                            <div className="size-8 rounded-full bg-cover bg-center ring-2 ring-primary shadow-[0_0_10px_#00bbf9]" style={{ backgroundImage: "url('https://ui-avatars.com/api/?name=" + (user?.name || 'You') + "&background=random')" }}></div>
-                                            <div className="flex-1">
-                                                <p className="text-sm font-bold">You</p>
-                                                <p className="text-xs text-primary">{xp.toLocaleString()} XP</p>
-                                            </div>
-                                            <span className="material-symbols-outlined text-primary text-sm animate-bounce">arrow_upward</span>
-                                        </div>
-                                    </div>
+                                    <button onClick={() => navigate('?tab=myClass')} className="text-sm font-medium text-primary hover:text-secondary hover:underline transition-colors">전체 보기</button>
                                 </div>
+                                {courses.length > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                        {courses.slice(0, 6).map((course, i) => {
+                                            const completion = getCourseCompletion(course.id);
+                                            const studentProgress = getStudentProgress(user?.studentId, course.id);
+                                            const currentStageIdx = course.stages?.findIndex((stage) => {
+                                                const sp = studentProgress?.[stage.id];
+                                                return !(sp?.easy && sp?.normal && sp?.hard);
+                                            });
+                                            const currentStageNum = currentStageIdx === -1 ? course.stages?.length : (currentStageIdx ?? 0) + 1;
+                                            const currentStageName = currentStageIdx >= 0 ? course.stages[currentStageIdx]?.title : null;
+                                            const isAllDone = completion === 100;
+                                            const colorSets = [
+                                                { bg: 'from-violet-100 to-violet-50', border: 'border-violet-200', icon: 'text-violet-500' },
+                                                { bg: 'from-pink-100 to-pink-50', border: 'border-pink-200', icon: 'text-pink-500' },
+                                                { bg: 'from-sky-100 to-sky-50', border: 'border-sky-200', icon: 'text-sky-500' },
+                                                { bg: 'from-emerald-100 to-emerald-50', border: 'border-emerald-200', icon: 'text-emerald-500' },
+                                                { bg: 'from-amber-100 to-amber-50', border: 'border-amber-200', icon: 'text-amber-500' },
+                                                { bg: 'from-rose-100 to-rose-50', border: 'border-rose-200', icon: 'text-rose-500' },
+                                            ];
+                                            const cc = colorSets[i % colorSets.length];
+                                            return (
+                                                <div key={course.id} onClick={() => navigate(`?tab=myClass&openCourse=${course.id}`)} className={`bg-white rounded-lg p-4 flex gap-4 hover:shadow-lg hover:scale-[1.01] transition-all duration-300 ${cc.border} border group cursor-pointer`}>
+                                                    <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${cc.bg} flex items-center justify-center shrink-0`}>
+                                                        <span className={`material-symbols-outlined ${cc.icon} text-[24px]`}>menu_book</span>
+                                                    </div>
+                                                    <div className="flex flex-col justify-between flex-1 py-0.5 min-w-0">
+                                                        <div>
+                                                            <h3 className="font-bold text-sm leading-tight mb-1 group-hover:text-primary transition-colors truncate">{course.name}</h3>
+                                                            <p className="text-xs text-slate-500 flex items-center gap-1">
+                                                                {isAllDone ? (
+                                                                    <><span className="material-symbols-outlined text-green-500 text-xs">check_circle</span> 전체 완료</>
+                                                                ) : (
+                                                                    <><span className="material-symbols-outlined text-primary text-xs">play_arrow</span> 스테이지 {currentStageNum}/{course.stages?.length || 0} 진행 중{currentStageName ? ` · ${currentStageName}` : ''}</>
+                                                                )}
+                                                            </p>
+                                                        </div>
+                                                        <div className="mt-2">
+                                                            <div className="flex justify-between text-xs mb-1">
+                                                                <span className="font-medium text-slate-400">진행률</span>
+                                                                <span className="font-bold text-primary">{completion}%</span>
+                                                            </div>
+                                                            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                                                <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${completion}%` }}></div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div className="bg-white rounded-lg p-8 text-center text-slate-400 border border-slate-200">
+                                        <span className="material-symbols-outlined text-4xl mb-2 block">school</span>
+                                        <p>아직 수업이 없습니다.</p>
+                                    </div>
+                                )}
                             </section>
                         </>
                     ) : (
@@ -635,9 +588,9 @@ export default function StudentDashboardPage() {
                                         </div>
                                     </div>
 
-                                    {myClasses.length > 0 ? (
+                                    {courses.length > 0 ? (
                                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                                            {myClasses.map((course) => {
+                                            {courses.map((course) => {
                                                 const completion = getCourseCompletion(course.id);
                                                 return (
                                                     <button
