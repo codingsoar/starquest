@@ -378,14 +378,11 @@ export default function StudentDashboardPage() {
                         <span className="material-symbols-outlined group-hover:rotate-90 transition-transform">settings</span>
                         <span className="hidden lg:block">Settings</span>
                     </button>
-                    <div className="mt-4 flex items-center gap-3 px-2 lg:px-4 cursor-pointer" onClick={() => navigate('/student-profile')} title="View Profile">
-                        <div className="relative size-10 rounded-full bg-cover bg-center ring-2 ring-primary/50" style={{ backgroundImage: "url('https://ui-avatars.com/api/?name=" + (user?.name || 'User') + "&background=random')" }}>
-                            <div className="absolute bottom-0 right-0 size-3 bg-secondary border-2 border-white rounded-full"></div>
-                        </div>
-                        <div className="hidden lg:flex flex-col">
-                            <span className="text-sm font-bold text-slate-900">{user?.name || 'Student'}</span>
-                        </div>
-                    </div>
+                    {/* Logout Button */}
+                    <button onClick={handleLogout} className="mt-2 flex items-center gap-4 px-4 py-3 rounded-xl text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all group w-full text-left">
+                        <span className="material-symbols-outlined group-hover:rotate-180 transition-transform">logout</span>
+                        <span className="hidden lg:block">Logout</span>
+                    </button>
                 </div>
             </aside>
 
