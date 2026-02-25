@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useProgressStore } from '../stores/useProgressStore';
 import { useStageStore } from '../stores/useStageStore';
+import { useNotificationStore } from '../stores/useNotificationStore';
 import { Button, Card, CardBody, Progress, Modal, ModalContent, ModalBody } from '@heroui/react';
 import { ChevronLeft, Star, Upload, ChevronRight, Check, Play, BookOpen } from 'lucide-react';
 
@@ -404,9 +405,16 @@ export default function StudentDashboardPage() {
                         </div>
                     </div>
                     <div className="flex items-center gap-3 md:gap-4 ml-auto">
-                        <button className="relative p-2 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors group">
+                        <button onClick={() => useNotificationStore.getState().togglePanel()} className="relative p-2 rounded-full bg-slate-100 hover:bg-slate-200 transition-colors group">
                             <span className="material-symbols-outlined text-slate-600 group-hover:text-primary">notifications</span>
-                            <span className="absolute top-2 right-2 size-2 bg-accent-pink rounded-full animate-pulse"></span>
+                            {useNotificationStore.getState().notifications.filter(n => {
+                                const sid = user?.studentId;
+                                const cIds = user?.courseIds || [];
+                                const visible = n.to === 'all' || n.to === sid || (n.to.startsWith('class:') && cIds.includes(n.to.replace('class:', '')));
+                                return visible && !n.readBy.includes(sid);
+                            }).length > 0 && (
+                                    <span className="absolute top-1 right-1 size-2.5 bg-accent-pink rounded-full animate-pulse"></span>
+                                )}
                         </button>
                         <div className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-amber-50 border border-amber-200 shadow-sm">
                             <Star size={16} className="text-amber-500 fill-amber-500" />
