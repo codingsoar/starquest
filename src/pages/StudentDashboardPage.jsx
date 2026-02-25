@@ -396,10 +396,7 @@ export default function StudentDashboardPage() {
                         <span className="font-bold text-lg">LevelUp</span>
                     </div>
                     <div className="hidden md:flex flex-1 max-w-xl mx-auto">
-                        <div className="relative w-full group">
-                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors material-symbols-outlined">search</span>
-                            <input className="w-full bg-slate-100 border-none rounded-full py-3 pl-12 pr-4 text-sm focus:ring-2 focus:ring-primary placeholder-slate-400 transition-shadow outline-none" placeholder="Search for courses, quests, or friends..." type="text" />
-                        </div>
+                        {/* Search bar removed by user request */}
                     </div>
                     <StudentHeaderActions />
                 </header>
