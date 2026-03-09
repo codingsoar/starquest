@@ -8,6 +8,7 @@ import useThemeStore from '../stores/useThemeStore';
 import { useMarketplaceStore } from '../stores/useMarketplaceStore';
 import { useNotificationStore } from '../stores/useNotificationStore';
 import { useAssessmentStore, ASSESSMENT_METHODS, findNearestScore, ACHIEVEMENT_LEVELS, autoGenerateScoring, scoreFromCheckedCount, getAchievementGrade } from '../stores/useAssessmentStore';
+// Note: addSessionScoreForAllAreas, deleteSessionScoreByLabel are used via useAssessmentStore hook
 import DashboardCalendar from '../components/DashboardCalendar';
 // --- Sub-components for Views ---
 
@@ -1724,7 +1725,7 @@ const AssessmentsManagement = ({ courses, registeredStudents }) => {
                                         <div key={area.id} className="bg-white/5 rounded-xl p-4 border border-white/10 hover:border-admin-primary/30 transition-colors">
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-3">
-                                                    <span className="text-xl font-bold text-admin-primary">{String.fromCharCode(0xAC00 + idx)}.</span>
+                                                    <span className="text-xl font-bold text-admin-primary">{'가나다라마바사아자차카타파하'.charAt(idx) || String(idx + 1)}.</span>
                                                     <div>
                                                         <span className="font-semibold text-white">{area.name}</span>
                                                         <span className="text-sm text-gray-400 ml-3">비율 {area.weight}%</span>
@@ -1801,6 +1802,53 @@ const AssessmentsManagement = ({ courses, registeredStudents }) => {
                         </label>
                     </div>
 
+                    {/* 공통 차시 관리 */}
+                    {plan.performanceAreas.length > 0 && (
+                        <div className="bg-admin-card-dark p-6 rounded-2xl border border-white/10">
+                            <h4 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-amber-400">event_note</span>차시 관리
+                            </h4>
+                            <p className="text-xs text-gray-400 mb-3">차시를 추가하면 모든 수행평가 영역에 동시 적용됩니다.</p>
+                            <div className="flex items-end gap-3 p-3 bg-white/5 rounded-xl border border-dashed border-white/10 mb-3">
+                                <div>
+                                    <label className="text-xs text-gray-400 mb-1 block">날짜</label>
+                                    <input type="date" value={newSessionDate} onChange={e => setNewSessionDate(e.target.value)} className="bg-white/5 border border-white/10 rounded-lg text-xs text-white px-2 py-1.5" />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-gray-400 mb-1 block">차시명</label>
+                                    <input value={newSessionLabel} onChange={e => setNewSessionLabel(e.target.value)} placeholder="예: 1차시" className="bg-white/5 border border-white/10 rounded-lg text-xs text-white px-2 py-1.5 w-24" />
+                                </div>
+                                <button onClick={() => {
+                                    if (!newSessionLabel.trim()) return;
+                                    useAssessmentStore.getState().addSessionScoreForAllAreas(selectedCourseId, newSessionDate, newSessionLabel);
+                                    const allSessions = getSessionScoresForArea(selectedCourseId, plan.performanceAreas[0]?.id);
+                                    setNewSessionLabel(`${(allSessions?.length || 0) + 1}차시`);
+                                }} className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-xs font-medium hover:bg-emerald-600 flex items-center gap-1">
+                                    <span className="material-symbols-outlined text-sm">add</span>차시 추가
+                                </button>
+                            </div>
+                            {/* 등록된 차시 목록 */}
+                            {(() => {
+                                const firstArea = plan.performanceAreas[0];
+                                if (!firstArea) return null;
+                                const sessions = getSessionScoresForArea(selectedCourseId, firstArea.id);
+                                if (sessions.length === 0) return <p className="text-xs text-gray-500">등록된 차시가 없습니다.</p>;
+                                return (
+                                    <div className="flex flex-wrap gap-2">
+                                        {sessions.map(s => (
+                                            <div key={s.id} className="flex items-center gap-1.5 bg-white/5 rounded-lg px-3 py-1.5 border border-white/10">
+                                                <span className="text-xs text-white font-medium">{s.sessionLabel}</span>
+                                                <span className="text-[10px] text-gray-500">{s.sessionDate}</span>
+                                                <button onClick={() => { if (confirm(`'${s.sessionLabel}' 차시를 모든 영역에서 삭제하시겠습니까?`)) useAssessmentStore.getState().deleteSessionScoreByLabel(selectedCourseId, s.sessionDate, s.sessionLabel); }}
+                                                    className="text-gray-500 hover:text-red-400 ml-1"><span className="material-symbols-outlined text-xs">close</span></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    )}
+
                     {/* 수업별 채점 영역 */}
                     {plan.performanceAreas.length > 0 && (
                         <div className="bg-admin-card-dark p-6 rounded-2xl border border-white/10">
@@ -1817,9 +1865,9 @@ const AssessmentsManagement = ({ courses, registeredStudents }) => {
                                                     <span className="font-semibold text-white">{area.name}</span>
                                                     <span className="text-xs text-gray-400 ml-2">({sessions.length}회 채점)</span>
                                                 </div>
-                                                <button onClick={() => { setScoringSessionModal({ areaId: area.id, area }); setNewSessionLabel(`${sessions.length + 1}차시`); setNewSessionDate(new Date().toISOString().split('T')[0]); }}
+                                                <button onClick={() => { setScoringSessionModal({ areaId: area.id, area }); }}
                                                     className="px-3 py-1.5 bg-admin-primary text-white rounded-lg text-xs font-medium hover:bg-admin-primary/80 flex items-center gap-1">
-                                                    <span className="material-symbols-outlined text-sm">add</span>채점 추가
+                                                    <span className="material-symbols-outlined text-sm">edit</span>채점하기
                                                 </button>
                                             </div>
                                             {/* 채점 이력 */}
@@ -2032,97 +2080,129 @@ const AssessmentsManagement = ({ courses, registeredStudents }) => {
                                 </div>
                             </div>
                             <div className="p-6 space-y-4">
-                                {/* 새 차시 추가 */}
-                                <div className="flex items-end gap-3 p-3 bg-white/5 rounded-xl border border-dashed border-white/10">
-                                    <div>
-                                        <label className="text-xs text-gray-400 mb-1 block">날짜</label>
-                                        <input type="date" value={newSessionDate} onChange={e => setNewSessionDate(e.target.value)} className="bg-white/5 border border-white/10 rounded-lg text-xs text-white px-2 py-1.5" />
+
+                                {/* 차시 탭 */}
+                                {sessions.length > 0 && (
+                                    <div className="flex flex-wrap gap-1.5 mb-4">
+                                        {sessions.map(session => (
+                                            <button key={session.id}
+                                                onClick={() => setScoringSessionModal({ ...scoringSessionModal, activeSessionId: session.id })}
+                                                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${(scoringSessionModal.activeSessionId || sessions[sessions.length - 1]?.id) === session.id
+                                                    ? 'bg-admin-primary text-white shadow-lg'
+                                                    : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'}`}>
+                                                <div>{session.sessionLabel}</div>
+                                                <div className="text-[9px] opacity-70">{session.sessionDate}</div>
+                                            </button>
+                                        ))}
+                                        <button onClick={() => { if (confirm('선택된 차시를 삭제하시겠습니까?')) { const activeId = scoringSessionModal.activeSessionId || sessions[sessions.length - 1]?.id; deleteSessionScore(activeId); } }}
+                                            className="px-2 py-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all">
+                                            <span className="material-symbols-outlined text-sm">delete</span>
+                                        </button>
                                     </div>
-                                    <div>
-                                        <label className="text-xs text-gray-400 mb-1 block">차시명</label>
-                                        <input value={newSessionLabel} onChange={e => setNewSessionLabel(e.target.value)} placeholder="예: 1차시" className="bg-white/5 border border-white/10 rounded-lg text-xs text-white px-2 py-1.5 w-24" />
-                                    </div>
-                                    <button onClick={() => {
-                                        if (!newSessionLabel.trim()) return;
-                                        addSessionScore(selectedCourseId, area.id, newSessionDate, newSessionLabel);
-                                        setNewSessionLabel(`${sessions.length + 2}차시`);
-                                    }} className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-xs font-medium hover:bg-emerald-600 flex items-center gap-1">
-                                        <span className="material-symbols-outlined text-sm">add</span>차시 추가
-                                    </button>
-                                </div>
-                                {/* 기존 차시별 채점 */}
-                                {sessions.map(session => (
-                                    <div key={session.id} className="bg-white/5 rounded-xl p-4 border border-white/10">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-sm font-bold text-white">{session.sessionLabel}</span>
-                                                <span className="text-[10px] text-gray-500">{session.sessionDate}</span>
+                                )}
+
+                                {/* 활성 차시 채점 */}
+                                {(() => {
+                                    const activeSession = sessions.find(s => s.id === (scoringSessionModal.activeSessionId || sessions[sessions.length - 1]?.id));
+                                    if (!activeSession) return <p className="text-gray-500 text-sm text-center py-4">차시를 추가해주세요</p>;
+
+                                    const selectedStudentId = scoringSessionModal.selectedStudentId || enrolledStudents[0]?.studentId;
+                                    const currentStudentIdx = enrolledStudents.findIndex(s => s.studentId === selectedStudentId);
+                                    const student = enrolledStudents[currentStudentIdx];
+                                    if (!student) return null;
+
+                                    const checkedItems = activeSession.checkedCriteria?.[student.studentId] || [];
+                                    const currentScore = activeSession.scores[student.studentId];
+
+                                    return (
+                                        <div className="bg-white/5 rounded-xl border border-white/10">
+                                            {/* 학생 선택 영역 */}
+                                            <div className="flex items-center gap-2 p-4 border-b border-white/10">
+                                                <button onClick={() => {
+                                                    const prevIdx = Math.max(currentStudentIdx - 1, 0);
+                                                    setScoringSessionModal({ ...scoringSessionModal, selectedStudentId: enrolledStudents[prevIdx].studentId });
+                                                }} disabled={currentStudentIdx <= 0}
+                                                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+                                                    <span className="material-symbols-outlined text-sm">chevron_left</span>
+                                                </button>
+
+                                                <select value={selectedStudentId}
+                                                    onChange={e => setScoringSessionModal({ ...scoringSessionModal, selectedStudentId: e.target.value })}
+                                                    className="flex-1 bg-white/5 border border-white/10 rounded-lg text-sm text-white px-3 py-2 font-medium appearance-none cursor-pointer text-center">
+                                                    {enrolledStudents.map((s, i) => (
+                                                        <option key={s.studentId} value={s.studentId} className="bg-[#1e1e2e] text-white">
+                                                            {i + 1}. {s.name} {activeSession.scores[s.studentId] !== undefined ? `(${activeSession.scores[s.studentId]}점)` : ''}
+                                                        </option>
+                                                    ))}
+                                                </select>
+
+                                                <button onClick={() => {
+                                                    const nextIdx = Math.min(currentStudentIdx + 1, enrolledStudents.length - 1);
+                                                    setScoringSessionModal({ ...scoringSessionModal, selectedStudentId: enrolledStudents[nextIdx].studentId });
+                                                }} disabled={currentStudentIdx >= enrolledStudents.length - 1}
+                                                    className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+                                                    <span className="material-symbols-outlined text-sm">chevron_right</span>
+                                                </button>
+
+                                                <span className="text-[10px] text-gray-500 whitespace-nowrap">{currentStudentIdx + 1}/{enrolledStudents.length}</span>
                                             </div>
-                                            <button onClick={() => { if (confirm('이 차시 채점을 삭제하시겠습니까?')) deleteSessionScore(session.id); }}
-                                                className="text-gray-500 hover:text-red-400"><span className="material-symbols-outlined text-sm">delete</span></button>
-                                        </div>
-                                        <div className="space-y-3">
-                                            {enrolledStudents.map(student => {
-                                                const checkedItems = session.checkedCriteria?.[student.studentId] || [];
-                                                return (
-                                                    <div key={student.studentId} className="border-b border-white/5 pb-3 last:border-0 last:pb-0">
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="text-sm text-white w-20 flex-shrink-0 font-medium">{student.name}</span>
-                                                            {isChecklistMode && criteria.length > 0 ? (
-                                                                /* 체크리스트 모드 */
-                                                                <div className="flex-1">
-                                                                    <div className="flex flex-wrap gap-1.5">
-                                                                        {criteria.map((cr, idx) => {
-                                                                            const isChecked = checkedItems.includes(idx);
-                                                                            return (
-                                                                                <button key={idx} onClick={() => {
-                                                                                    let newChecked;
-                                                                                    if (isChecked) {
-                                                                                        newChecked = checkedItems.filter(x => x !== idx);
-                                                                                    } else {
-                                                                                        newChecked = [...checkedItems, idx];
-                                                                                    }
-                                                                                    // 체크 개수 → 점수 산출
-                                                                                    const derivedScore = scoreFromCheckedCount(area.scoringLevels, newChecked.length);
-                                                                                    updateSessionStudentScore(session.id, student.studentId, derivedScore, newChecked);
-                                                                                }}
-                                                                                    title={cr}
-                                                                                    className={`w-7 h-7 rounded-md text-xs font-bold transition-all ${isChecked
-                                                                                        ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
-                                                                                        : 'bg-white/5 text-gray-500 hover:bg-white/10 border border-white/10'}`}>
-                                                                                    {isChecked ? '✓' : (idx + 1)}
-                                                                                </button>
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                    <div className="flex items-center gap-2 mt-1.5">
-                                                                        <span className="text-[10px] text-gray-500">{checkedItems.length}/{criteria.length} 만족</span>
-                                                                        <span className="text-[10px] text-amber-400 font-medium">→ {session.scores[student.studentId] ?? '-'}점</span>
-                                                                    </div>
-                                                                </div>
-                                                            ) : (
-                                                                /* 직접 입력 모드 */
-                                                                <div className="flex gap-1.5 flex-1 flex-wrap">
-                                                                    {area.scoringLevels.map(lv => {
-                                                                        const isSelected = session.scores[student.studentId] === lv.score;
-                                                                        return (
-                                                                            <button key={lv.id} onClick={() => updateSessionStudentScore(session.id, student.studentId, lv.score)}
-                                                                                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${isSelected
-                                                                                    ? 'bg-admin-primary text-white shadow-lg ring-2 ring-admin-primary/50'
-                                                                                    : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'}`}>
-                                                                                {lv.label} ({lv.score})
-                                                                            </button>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            )}
+
+                                            {/* 채점 내용 */}
+                                            <div className="p-4">
+                                                {isChecklistMode && criteria.length > 0 ? (
+                                                    /* 체크리스트 모드: 세로 정렬 */
+                                                    <div className="space-y-2">
+                                                        {criteria.map((cr, idx) => {
+                                                            const isChecked = checkedItems.includes(idx);
+                                                            return (
+                                                                <button key={idx} onClick={() => {
+                                                                    let newChecked;
+                                                                    if (isChecked) {
+                                                                        newChecked = checkedItems.filter(x => x !== idx);
+                                                                    } else {
+                                                                        newChecked = [...checkedItems, idx];
+                                                                    }
+                                                                    const derivedScore = scoreFromCheckedCount(area.scoringLevels, newChecked.length);
+                                                                    updateSessionStudentScore(activeSession.id, student.studentId, derivedScore, newChecked);
+                                                                }}
+                                                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all text-left ${isChecked
+                                                                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                                                        : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'}`}>
+                                                                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 ${isChecked
+                                                                        ? 'bg-emerald-500 text-white' : 'bg-white/10 text-gray-500'}`}>
+                                                                        {isChecked ? '✓' : (idx + 1)}
+                                                                    </span>
+                                                                    <span className="flex-1">{cr}</span>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                        {/* 요약 */}
+                                                        <div className="flex items-center justify-between pt-3 mt-2 border-t border-white/10">
+                                                            <span className="text-sm text-gray-400">{checkedItems.length}/{criteria.length} 만족</span>
+                                                            <span className="text-lg font-bold text-amber-400">{currentScore ?? '-'}점</span>
                                                         </div>
                                                     </div>
-                                                );
-                                            })}
+                                                ) : (
+                                                    /* 직접 입력 모드 */
+                                                    <div className="space-y-2">
+                                                        {area.scoringLevels.map(lv => {
+                                                            const isSelected = currentScore === lv.score;
+                                                            return (
+                                                                <button key={lv.id} onClick={() => updateSessionStudentScore(activeSession.id, student.studentId, lv.score)}
+                                                                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all ${isSelected
+                                                                        ? 'bg-admin-primary/20 text-admin-primary border border-admin-primary/40 shadow-lg'
+                                                                        : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10'}`}>
+                                                                    <span>{lv.label}: {lv.description}</span>
+                                                                    <span className={`text-lg font-bold ${isSelected ? 'text-admin-primary' : 'text-gray-500'}`}>{lv.score}점</span>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })()}
                             </div>
                             <div className="p-4 border-t border-white/10 flex justify-end">
                                 <button onClick={() => setScoringSessionModal(null)} className="px-6 py-2.5 bg-admin-primary text-white rounded-xl font-medium hover:bg-admin-primary/80">닫기</button>
@@ -2224,17 +2304,25 @@ const AssessmentsManagement = ({ courses, registeredStudents }) => {
                                 <div className="flex items-center justify-between mb-2">
                                     <label className="text-xs text-gray-400">채점 기준 & 배점</label>
                                     {(editAreaModal.assessmentElements || []).length > 0 && (
-                                        <button onClick={() => {
-                                            const count = (editAreaModal.assessmentElements || []).length;
-                                            const maxScore = editAreaModal.weight || 30;
-                                            const minScoreBase = Math.round(maxScore / count);
-                                            const levels = autoGenerateScoring(count, maxScore, minScoreBase);
-                                            setEditAreaModal({ ...editAreaModal, scoringLevels: levels });
-                                            updatePerformanceArea(selectedCourseId, editAreaModal.id, { scoringLevels: levels });
-                                        }} className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-lg text-[10px] font-medium hover:bg-emerald-500/30 flex items-center gap-1">
-                                            <span className="material-symbols-outlined text-xs">auto_fix_high</span>
-                                            배점 자동 생성 ({(editAreaModal.assessmentElements || []).length}개 기준)
-                                        </button>
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-1">
+                                                <label className="text-[10px] text-gray-500 whitespace-nowrap">간격</label>
+                                                <input type="number" min="0.5" step="0.5" value={editAreaModal._scoreStep ?? 1}
+                                                    onChange={e => setEditAreaModal({ ...editAreaModal, _scoreStep: Number(e.target.value) || 1 })}
+                                                    className="w-12 bg-white/5 border border-white/10 rounded text-[11px] text-white px-1.5 py-0.5 text-center" />
+                                            </div>
+                                            <button onClick={() => {
+                                                const count = (editAreaModal.assessmentElements || []).length;
+                                                const maxScore = editAreaModal.weight || 30;
+                                                const step = editAreaModal._scoreStep ?? 1;
+                                                const levels = autoGenerateScoring(count, maxScore, step);
+                                                setEditAreaModal({ ...editAreaModal, scoringLevels: levels });
+                                                updatePerformanceArea(selectedCourseId, editAreaModal.id, { scoringLevels: levels });
+                                            }} className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-lg text-[10px] font-medium hover:bg-emerald-500/30 flex items-center gap-1">
+                                                <span className="material-symbols-outlined text-xs">auto_fix_high</span>
+                                                배점 자동 생성
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
                                 <div className="space-y-2">

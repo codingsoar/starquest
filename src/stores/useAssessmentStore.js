@@ -42,29 +42,40 @@ function getAchievementGrade(rate) {
     return ACHIEVEMENT_LEVELS[ACHIEVEMENT_LEVELS.length - 1];
 }
 
-// 평가요소 수 + 만점 + 최저점 → 등간격 배점표 자동 생성
-function autoGenerateScoring(criteriaCount, maxScore, minScore) {
-    if (criteriaCount <= 0 || maxScore <= minScore) return [];
+// 평가요소 수 + 만점 + 간격 → 배점표 자동 생성
+// 패턴: 모두만족→만점, (N-1)개→만점-간격, ..., 미참여→만점-(N*간격)
+function autoGenerateScoring(criteriaCount, maxScore, step = 1) {
+    if (criteriaCount <= 0 || maxScore <= 0) return [];
     const levels = [];
-    const step = (maxScore - minScore) / criteriaCount;
-    // criteriaCount+1개: 모두 만족(만점) → 0개 만족(최저)
-    // + 미참여 (최저보다 더 낮은 점수)
-    for (let i = criteriaCount; i >= 1; i--) {
-        const score = Math.round(minScore + step * i);
+    const nonPartScore = Math.max(maxScore - criteriaCount * step, 0);
+
+    // 최상: "위의 평가요소를 모두 만족하는 경우" → 만점
+    levels.push({
+        id: uid(),
+        label: '모두 만족',
+        description: '위의 평가요소를 모두 만족하는 경우',
+        score: maxScore,
+        matchCount: criteriaCount,
+    });
+
+    // 중간: N-1개 ~ 1개 만족
+    for (let i = criteriaCount - 1; i >= 1; i--) {
+        const score = Math.round(maxScore - (criteriaCount - i) * step);
         levels.push({
             id: uid(),
             label: `${i}개 만족`,
-            description: `평가 요소 중 ${i}가지를 만족하는 경우`,
-            score,
+            description: `위의 평가 요소 중 ${i}가지를 만족하는 경우`,
+            score: Math.max(score, nonPartScore + 1),
             matchCount: i,
         });
     }
-    // 미참여/위탁학생
+
+    // 최하: "미참여 또는 위탁학생"
     levels.push({
         id: uid(),
         label: '미참여',
         description: '미참여 또는 위탁학생',
-        score: Math.max(Math.round(minScore - step), 0),
+        score: nonPartScore,
         matchCount: 0,
     });
     return levels;
@@ -239,6 +250,32 @@ export const useAssessmentStore = create(
                     sessionScores: [...state.sessionScores, newSession],
                 }));
                 return newSession.id;
+            },
+
+            // 모든 영역에 동시에 차시 추가
+            addSessionScoreForAllAreas: (courseId, sessionDate, sessionLabel) => {
+                const plan = get().assessmentPlans[courseId];
+                if (!plan) return;
+                const newSessions = plan.performanceAreas.map(area => ({
+                    id: uid(),
+                    courseId,
+                    areaId: area.id,
+                    sessionDate,
+                    sessionLabel,
+                    scores: {},
+                }));
+                set(state => ({
+                    sessionScores: [...state.sessionScores, ...newSessions],
+                }));
+            },
+
+            // 날짜+차시명 기준으로 모든 영역의 해당 차시 삭제
+            deleteSessionScoreByLabel: (courseId, sessionDate, sessionLabel) => {
+                set(state => ({
+                    sessionScores: state.sessionScores.filter(s =>
+                        !(s.courseId === courseId && s.sessionDate === sessionDate && s.sessionLabel === sessionLabel)
+                    ),
+                }));
             },
 
             // score를 직접 입력하거나, checkedCriteria 배열로 체크리스트 기반 산출
