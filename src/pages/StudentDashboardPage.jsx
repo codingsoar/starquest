@@ -110,10 +110,13 @@ export default function StudentDashboardPage() {
     const [showCelebration, setShowCelebration] = useState(false);
 
     const handleMissionComplete = () => {
-        const alreadyDone = isMissionCompleted(user?.studentId, selectedCourseId, selectedStageId, selectedDifficulty);
+        if (!user?.studentId || !selectedCourseId || !selectedStageId || !selectedDifficulty) return;
+        const alreadyDone = isMissionCompleted(user.studentId, selectedCourseId, selectedStageId, selectedDifficulty);
         if (!alreadyDone) {
-            completeMission(user?.studentId, selectedCourseId, selectedStageId, selectedDifficulty);
+            completeMission(user.studentId, selectedCourseId, selectedStageId, selectedDifficulty);
             setShowCelebration(true);
+        } else {
+            handleBackToMap();
         }
     };
 
@@ -164,10 +167,17 @@ export default function StudentDashboardPage() {
         useEffect(() => {
             if (quizStarted || !mission.videoUrl) return;
 
-            // Extract video ID from embed URL
-            const match = mission.videoUrl.match(/\/embed\/([^?&/]+)/);
-            if (!match) return;
-            const videoId = match[1];
+            // Extract video ID from various YouTube URL formats
+            let videoId = null;
+            const embedMatch = mission.videoUrl.match(/\/embed\/([a-zA-Z0-9_-]+)/);
+            const watchMatch = mission.videoUrl.match(/[?&]v=([a-zA-Z0-9_-]+)/);
+            const shortMatch = mission.videoUrl.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+            const shortsMatch = mission.videoUrl.match(/\/shorts\/([a-zA-Z0-9_-]+)/);
+            if (embedMatch) videoId = embedMatch[1];
+            else if (watchMatch) videoId = watchMatch[1];
+            else if (shortMatch) videoId = shortMatch[1];
+            else if (shortsMatch) videoId = shortsMatch[1];
+            if (!videoId) return;
 
             // Extract start time if present
             const startMatch = mission.videoUrl.match(/[?&]start=(\d+)/);
@@ -280,9 +290,63 @@ export default function StudentDashboardPage() {
 
     const TutorialView = ({ mission, onComplete }) => {
         const hasHtml = !!mission.htmlContent;
+        const [canComplete, setCanComplete] = useState(false);
+
+        // iframe 내부에서 스크롤 완료 메시지 수신
+        useEffect(() => {
+            if (!hasHtml) return;
+            const handler = (e) => {
+                if (e.data === 'TUTORIAL_SCROLL_END') {
+                    setCanComplete(true);
+                }
+            };
+            window.addEventListener('message', handler);
+            return () => window.removeEventListener('message', handler);
+        }, [hasHtml]);
+
         if (hasHtml) {
+            // HTML 끝에 프로그래스 바 감지 스크립트 삽입
+            const progressDetectScript = `<script>
+(function(){
+    var fired = false;
+    function notifyComplete() {
+        if (fired) return;
+        fired = true;
+        window.parent.postMessage('TUTORIAL_SCROLL_END', '*');
+    }
+
+    function checkProgress() {
+        // 1) <progress> 요소 확인
+        var prog = document.querySelector('progress');
+        if (prog && prog.value >= prog.max && prog.max > 0) { notifyComplete(); return; }
+
+        // 2) role="progressbar" 요소 확인
+        var bars = document.querySelectorAll('[role="progressbar"]');
+        for (var i = 0; i < bars.length; i++) {
+            var now = parseFloat(bars[i].getAttribute('aria-valuenow') || 0);
+            var max = parseFloat(bars[i].getAttribute('aria-valuemax') || 100);
+            if (now >= max) { notifyComplete(); return; }
+        }
+
+        // 3) width가 100%인 프로그래스 바 스타일 확인
+        var allBars = document.querySelectorAll('[class*="progress"], [id*="progress"], [class*="bar"], [id*="bar"]');
+        for (var j = 0; j < allBars.length; j++) {
+            var w = allBars[j].style.width;
+            if (w === '100%') { notifyComplete(); return; }
+        }
+    }
+
+    // 0.5초마다 확인
+    var interval = setInterval(function(){
+        checkProgress();
+        if (fired) clearInterval(interval);
+    }, 500);
+})();
+</script>`;
+            const finalHtml = mission.htmlContent + progressDetectScript;
+
             return (
-                <div className="space-y-6">
+                <div className="space-y-4">
                     <Card className="shadow-2xl border border-slate-200 overflow-hidden">
                         <div className="bg-slate-100 p-2 flex items-center gap-2 border-b border-slate-200">
                             <div className="flex gap-1">
@@ -292,10 +356,12 @@ export default function StudentDashboardPage() {
                             </div>
                             <span className="text-[10px] text-slate-400 font-mono">tutorial_environment.html</span>
                         </div>
-                        <iframe srcDoc={mission.htmlContent} title="Tutorial" className="w-full h-[70vh]" sandbox="allow-scripts allow-forms allow-modals allow-popups" />
+                        <iframe srcDoc={finalHtml} title="Tutorial" className="w-full h-[70vh]" sandbox="allow-scripts allow-forms allow-modals allow-popups" />
                     </Card>
-                    <div className="flex items-center justify-end p-4 bg-white rounded-xl border border-slate-200 shadow-lg">
-                        <Button color="success" className="text-white font-bold" onPress={onComplete}>Complete Mission →</Button>
+                    <div className={`flex items-center justify-center p-4 bg-white rounded-xl border shadow-lg transition-all duration-500 ${canComplete ? 'border-green-300 opacity-100' : 'border-slate-200 opacity-40 pointer-events-none'}`}>
+                        <Button color={canComplete ? 'success' : 'default'} className="text-black font-bold px-8" onPress={onComplete} isDisabled={!canComplete}>
+                            {canComplete ? '✅ 미션 완료하기' : '📖 튜토리얼을 끝까지 읽어주세요'}
+                        </Button>
                     </div>
                 </div>
             );

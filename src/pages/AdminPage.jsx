@@ -761,12 +761,24 @@ const MissionEditorModal = ({ isOpen, onClose, mission, onSave, difficulty }) =>
     const handleSubmit = (e) => {
         e.preventDefault();
         const finalData = { ...formData };
-        // If videoUrl contains an iframe embed code, extract the src attribute
-        if (finalData.videoUrl && finalData.videoUrl.includes('<iframe')) {
-            const srcMatch = finalData.videoUrl.match(/src=["']([^"']+)["']/);
-            if (srcMatch) {
-                finalData.videoUrl = srcMatch[1].replace(/&amp;/g, '&');
+        // Normalize YouTube URL to embed format
+        if (finalData.videoUrl) {
+            let url = finalData.videoUrl.trim();
+            // 1) iframe embed code → extract src
+            if (url.includes('<iframe')) {
+                const srcMatch = url.match(/src=["']([^"']+)["']/);
+                if (srcMatch) url = srcMatch[1].replace(/&amp;/g, '&');
             }
+            // 2) watch?v= format → embed
+            const watchMatch = url.match(/(?:youtube\.com\/watch\?.*v=)([a-zA-Z0-9_-]+)/);
+            if (watchMatch) url = `https://www.youtube.com/embed/${watchMatch[1]}`;
+            // 3) youtu.be/ short link → embed
+            const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+            if (shortMatch) url = `https://www.youtube.com/embed/${shortMatch[1]}`;
+            // 4) shorts/ format → embed
+            const shortsMatch = url.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/);
+            if (shortsMatch) url = `https://www.youtube.com/embed/${shortsMatch[1]}`;
+            finalData.videoUrl = url;
         }
         // Strip quizQuestions if quiz is disabled
         if (!finalData.hasQuiz) {
