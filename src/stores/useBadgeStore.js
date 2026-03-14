@@ -111,19 +111,34 @@ const calculateStudentStats = (studentId) => {
     stats.itemsBought = purchases.length;
 
     // Assessments
-    const studentAssessments = assessmentState.sessions?.filter(s => s.studentId === studentId) || [];
-    stats.perfectAssessments = studentAssessments.filter(s => {
-        if (!s.scores) return false;
-        return Object.values(s.scores).every(area => {
-            const checkScore = area.checklistScore?.score || 0;
-            const checkMax = area.checklistScore?.maxScore || 1;
-            return checkScore === checkMax && area.attitudeScore === 30 && area.quizScore === 100;
-        });
+    const studentSessionScores = (assessmentState.sessionScores || []).filter(session => session.scores?.[studentId] !== undefined);
+    const plansByCourseId = assessmentState.assessmentPlans || {};
+
+    stats.perfectAssessments = studentSessionScores.filter(session => {
+        const plan = plansByCourseId[session.courseId];
+        const area = plan?.performanceAreas?.find(candidate => candidate.id === session.areaId);
+        if (!area?.scoringLevels?.length) return false;
+
+        const maxAreaScore = Math.max(...area.scoringLevels.map(level => level.score));
+        return session.scores[studentId] === maxAreaScore;
     }).length;
 
-    stats.perfectAttitude = studentAssessments.filter(s => Object.values(s.scores || {}).some(a => a.attitudeScore === 30)).length;
-    stats.perfectQuizAssessments = studentAssessments.filter(s => Object.values(s.scores || {}).some(a => a.quizScore === 100)).length;
-    stats.perfectChecklists = studentAssessments.filter(s => Object.values(s.scores || {}).some(a => (a.checklistScore?.score || 0) === (a.checklistScore?.maxScore || 1) && (a.checklistScore?.maxScore || 0) > 0)).length;
+    stats.perfectChecklists = studentSessionScores.filter(session => {
+        const plan = plansByCourseId[session.courseId];
+        const area = plan?.performanceAreas?.find(candidate => candidate.id === session.areaId);
+        const assessmentElements = area?.assessmentElements || [];
+        const checkedCriteria = session.checkedCriteria?.[studentId] || [];
+
+        return assessmentElements.length > 0 && checkedCriteria.length === assessmentElements.length;
+    }).length;
+
+    const assessedAreaIds = new Set(studentSessionScores.map(session => `${session.courseId}:${session.areaId}`));
+    const totalAreaIds = new Set(
+        Object.entries(plansByCourseId).flatMap(([courseId, plan]) =>
+            (plan?.performanceAreas || []).map(area => `${courseId}:${area.id}`)
+        )
+    );
+    stats.allAreasAssessed = totalAreaIds.size > 0 && totalAreaIds.size === assessedAreaIds.size;
 
     return stats;
 };

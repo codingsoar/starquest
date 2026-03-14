@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Star, BookOpen } from 'lucide-react';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useProgressStore } from '../stores/useProgressStore';

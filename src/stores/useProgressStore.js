@@ -89,6 +89,17 @@ export const useProgressStore = create(
                     .sort((a, b) => b.timestamp - a.timestamp);
             },
 
+            getCourseReflections: (courseId) => {
+                return (get().reflections || [])
+                    .filter(reflection => reflection.courseId === courseId)
+                    .sort((a, b) => b.timestamp - a.timestamp);
+            },
+
+            getAllReflections: () => {
+                return [...(get().reflections || [])]
+                    .sort((a, b) => b.timestamp - a.timestamp);
+            },
+
             getAllStudentProgress: () => {
                 return get().progress;
             },

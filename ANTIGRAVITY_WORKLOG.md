@@ -642,3 +642,221 @@ Copy this block for every new entry:
 
 ### Notes
 - Root cause was component identity churn causing the modal subtree to remount during controlled textarea updates.
+
+## 2026-03-13 - Admin Help Guide Modal
+
+### Request
+- Make the admin page `?` button open a popup guide that explains how to use the full admin page for first-time users.
+
+### Scope
+- `src/pages/AdminPage.jsx` top-header help action and admin help UI only.
+- No changes to admin data models or existing management flows.
+
+### Implemented
+- Added `AdminHelpModal` to `src/pages/AdminPage.jsx`.
+- Connected the top-right help button to open the modal.
+- Wrote beginner-focused guide content covering quick start steps, menu-by-menu usage, and operating tips.
+- Filtered guide sections by the current account's visible admin permissions and highlighted the current page.
+
+### Validation
+- `npm run build` -> Sandbox failed (`spawn EPERM`), escalated success
+
+### Files
+- `src/pages/AdminPage.jsx`
+- `ANTIGRAVITY_WORKLOG.md`
+
+### Notes
+- The help modal uses the existing admin visual style and closes by overlay click, close button, or `Escape`.
+
+## 2026-03-13 - Student/Admin Stability Optimization
+
+### Request
+- Review the codebase and optimize the unstable parts found during inspection.
+
+### Scope
+- Student notification header, student assessments page, badge notification flow, badge stats calculation, and notification store migration.
+- No broad cleanup of existing admin-page lint debt beyond this focused stability pass.
+
+### Implemented
+- Removed React Compiler-fragile memoization from the student notification header and added safe handling for legacy notifications missing `readBy`.
+- Changed the student assessments page to derive the active course from current assignments instead of relying on one-time initial state.
+- Reconnected badge recalculation to `sessionScores` instead of the removed `sessions` field.
+- Reworked badge assessment stats to use current assessment-plan/session-score structures.
+- Added notification-store migration to normalize persisted `readBy` arrays.
+
+### Validation
+- `npx eslint src/components/StudentHeaderActions.jsx src/pages/StudentAssessmentsPage.jsx src/components/BadgeNotification.jsx src/stores/useBadgeStore.js src/stores/useNotificationStore.js` -> Success
+- `npm run build` -> Sandbox failed (`spawn EPERM`), escalated success
+- `npx eslint src` -> Failed (remaining pre-existing issues in `src/pages/AdminPage.jsx`, `src/pages/MarketplacePage.jsx`, `src/pages/StudentDashboardPage.jsx`, `src/pages/StudentProfilePage.jsx`)
+
+### Files
+- `src/components/StudentHeaderActions.jsx`
+- `src/pages/StudentAssessmentsPage.jsx`
+- `src/components/BadgeNotification.jsx`
+- `src/stores/useBadgeStore.js`
+- `src/stores/useNotificationStore.js`
+- `ANTIGRAVITY_WORKLOG.md`
+
+### Notes
+- Remaining repo-wide lint failures are now concentrated outside the files changed in this optimization pass, with `src/pages/AdminPage.jsx` still the largest source of debt.
+
+## 2026-03-13 - Repo Lint Cleanup
+
+### Request
+- Continue the optimization pass and clean up the remaining lint issues across the repository.
+
+### Scope
+- `src/pages/AdminPage.jsx`, `src/pages/MarketplacePage.jsx`, `src/pages/StudentDashboardPage.jsx`, and `src/pages/StudentProfilePage.jsx`.
+- No feature redesign beyond making existing flows lint-safe and compile-clean.
+
+### Implemented
+- Removed unused imports/state in admin, marketplace, and student profile pages.
+- Reworked `MissionEditorModal` initialization in `src/pages/AdminPage.jsx` to use derived initial state plus remount-by-key instead of effect-driven synchronous state resets.
+- Kept the existing admin help modal wiring and made the admin page fully lint-clean.
+- Fixed student dashboard hook dependency warnings.
+
+### Validation
+- `npx eslint src` -> Success
+- `npm run build` -> Sandbox failed (`spawn EPERM`), escalated success
+
+### Files
+- `src/pages/AdminPage.jsx`
+- `src/pages/MarketplacePage.jsx`
+- `src/pages/StudentDashboardPage.jsx`
+- `src/pages/StudentProfilePage.jsx`
+- `ANTIGRAVITY_WORKLOG.md`
+
+### Notes
+- Build still reports a large bundle-size warning only; lint and compile errors are resolved.
+
+## 2026-03-13 - Route-Based Bundle Splitting
+
+### Request
+- Reduce the bundle-size warning and verify the optimization still works correctly.
+
+### Scope
+- `src/App.jsx` routing/loading behavior.
+- `vite.config.js` build chunking configuration.
+
+### Implemented
+- Changed top-level page imports in `src/App.jsx` to `React.lazy(...)`.
+- Wrapped route rendering in `Suspense` with a lightweight loading fallback.
+- Added Vite `manualChunks` rules to split `xlsx`, UI libraries, Zustand, and remaining vendor code.
+- Removed an unnecessary `router` manual chunk after it generated an empty chunk warning.
+
+### Validation
+- `npx eslint src/App.jsx vite.config.js` -> Success
+- `npm run build` -> Sandbox failed (`spawn EPERM`), escalated success
+- Build output check -> Success, route/page chunks generated separately and previous `>500 kB` warning no longer appears
+
+### Files
+- `src/App.jsx`
+- `vite.config.js`
+- `ANTIGRAVITY_WORKLOG.md`
+
+### Notes
+- Final build produced separate chunks such as `AdminPage`, `StudentDashboardPage`, `MarketplacePage`, `StudentProfilePage`, `ui`, `vendor`, and `xlsx`.
+
+## 2026-03-15 - Admin Reflection Overview
+
+### Request
+- Let admins view the student-page `Reflection` content.
+- Add an admin `Reflection` tab that shows enrolled students' reflection sentences grouped by course.
+
+### Scope
+- `src/pages/AdminPage.jsx` admin navigation and reflection overview UI.
+- `src/stores/useAuthStore.js` sub-admin permission defaults.
+- `src/stores/useProgressStore.js` reflection selectors.
+
+### Implemented
+- Added `reflection` as an admin/sub-admin permission and sidebar view.
+- Added an admin `ReflectionManagement` view with per-course selection, summary counts, and student-grouped reflection cards.
+- Wired admin data access to persisted reflection entries and added reusable course/all reflection selectors in the progress store.
+- Extended the admin help modal guide to describe the new reflection workflow.
+
+### Validation
+- `npx eslint src/pages/AdminPage.jsx src/stores/useAuthStore.js src/stores/useProgressStore.js` -> Success
+- `npm run build` -> Sandbox failed (`spawn EPERM`), escalated success
+
+### Files
+- `src/pages/AdminPage.jsx`
+- `src/stores/useAuthStore.js`
+- `src/stores/useProgressStore.js`
+- `ANTIGRAVITY_WORKLOG.md`
+
+### Notes
+- Existing sub-admin accounts migrate to include `reflection: true` by default through the shared permission normalizer.
+- Admin reflection visibility is read-only; no edit/delete flow was added for reflection entries.
+
+## 2026-03-15 - Student Assigned Class Filtering Fix
+
+### Request
+- Check why student `3101` could see classes without being enrolled.
+
+### Scope
+- `src/pages/StudentDashboardPage.jsx` student dashboard and class-list rendering only.
+- No auth data model change was needed.
+
+### Implemented
+- Derived `myCourses` from `user.courseIds` and changed the student dashboard to render assigned classes only.
+- Updated course count cards, shortcut cards, and `My Class` list to use `myCourses` instead of all courses.
+- Restricted `openCourse` query handling so students cannot open an unassigned class by URL parameter.
+
+### Validation
+- `npx eslint src/pages/StudentDashboardPage.jsx` -> Success
+- `npm run build` -> Sandbox failed (`spawn EPERM`), escalated success
+
+### Files
+- `src/pages/StudentDashboardPage.jsx`
+- `ANTIGRAVITY_WORKLOG.md`
+
+### Notes
+- `src/components/StudentLayout.jsx` already filtered sidebar class counts by `courseIds`; the bug was limited to the main student dashboard page content.
+
+## 2026-03-15 - Default Admin Password Change
+
+### Request
+- Allow the default admin account to change its password from the `Settings` tab.
+
+### Scope
+- `src/stores/useAuthStore.js` default admin credential persistence and update action.
+- `src/pages/AdminPage.jsx` settings UI for password change.
+
+### Implemented
+- Added persisted `adminCredentials` state with migration fallback to the default `admin / admin1234` account.
+- Changed default admin login to use persisted credentials instead of a hardcoded password only.
+- Added `changeAdminPassword(currentPassword, newPassword)` to the auth store.
+- Added a main-admin-only password change form in `Settings` with current password check, confirmation check, and inline success/error feedback.
+
+### Validation
+- `npx eslint src/pages/AdminPage.jsx src/stores/useAuthStore.js` -> Success
+- `npm run build` -> Sandbox failed (`spawn EPERM`), escalated success
+
+### Files
+- `src/stores/useAuthStore.js`
+- `src/pages/AdminPage.jsx`
+- `ANTIGRAVITY_WORKLOG.md`
+
+### Notes
+- The new settings form changes only the default `admin` account password; sub-admin password management remains in the existing sub-admin management flow.
+
+## 2026-03-12 - Fix Unassigned Class Visibility Bug
+
+### Request
+- 특정 class에 등록하지 않은 학생으로 로그인했을 때 모든 class가 보이는 버그 수정.
+
+### Scope
+- src/pages/StudentDashboardPage.jsx
+
+### Implemented
+- 전체 courses 대신 학생의 user.courseIds 에 포함된 수업만 필터링하는 myCourses 로직 적용.
+- 사이드바 갯수, 대시보드 갯수, 랭킹, My Class 탭 등 표시 영역 전반에 myCourses 렌더링하도록 수정.
+
+### Validation
+- 코드 구조 검증 및 React 렌더링 로직 확인 -> 이상 없음
+
+### Files
+- src/pages/StudentDashboardPage.jsx
+
+### Notes
+- None.

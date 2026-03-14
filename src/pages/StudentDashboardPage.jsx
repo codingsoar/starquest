@@ -13,6 +13,14 @@ export default function StudentDashboardPage() {
     const { user, logout, registeredStudents } = useAuthStore();
     const { getStudentProgress, totalStars, getStudentReflections } = useProgressStore();
     const { courses } = useStageStore();
+    const assignedCourseIds = useMemo(
+        () => user?.courseIds || [],
+        [user?.courseIds]
+    );
+    const myCourses = useMemo(
+        () => courses.filter(course => assignedCourseIds.includes(course.id)),
+        [assignedCourseIds, courses]
+    );
     const activeTab = useMemo(() => {
         const tab = new URLSearchParams(location.search).get('tab');
         return ['dashboard', 'myClass', 'reflection'].includes(tab) ? tab : 'dashboard';
@@ -34,7 +42,7 @@ export default function StudentDashboardPage() {
 
     const getCourseCompletion = (courseId) => {
         if (!user?.studentId) return 0;
-        const selectedCourse = courses.find((course) => course.id === courseId);
+        const selectedCourse = myCourses.find((course) => course.id === courseId);
         if (!selectedCourse || selectedCourse.stages.length === 0) return 0;
 
         const studentProgress = getStudentProgress(user.studentId, courseId);
@@ -62,7 +70,7 @@ export default function StudentDashboardPage() {
     useEffect(() => {
         const params = new URLSearchParams(location.search);
         const openCourse = params.get('openCourse');
-        if (openCourse) {
+        if (openCourse && assignedCourseIds.includes(openCourse)) {
             setSelectedCourseId(openCourse);
             setCurrentView('map');
             setSelectedStageId(null);
@@ -73,9 +81,9 @@ export default function StudentDashboardPage() {
             setSelectedStageId(null);
             setSelectedDifficulty(null);
         }
-    }, [activeTab, location.search]);
+    }, [activeTab, assignedCourseIds, location.search]);
 
-    const selectedCourse = useMemo(() => courses.find(c => c.id === selectedCourseId), [courses, selectedCourseId]);
+    const selectedCourse = useMemo(() => myCourses.find(c => c.id === selectedCourseId), [myCourses, selectedCourseId]);
     const selectedStage = useMemo(() => selectedCourse?.stages.find(s => s.id === selectedStageId), [selectedCourse, selectedStageId]);
     const selectedMission = useMemo(() => selectedStage?.missions?.[selectedDifficulty], [selectedStage, selectedDifficulty]);
 
@@ -113,7 +121,7 @@ export default function StudentDashboardPage() {
     const [reflectionError, setReflectionError] = useState('');
     const reflectionEntries = useMemo(
         () => (user?.studentId ? getStudentReflections(user.studentId) : []),
-        [getStudentReflections, user?.studentId, totalStars]
+        [getStudentReflections, user?.studentId]
     );
 
     const finalizeMissionComplete = (reflection) => {
@@ -258,7 +266,7 @@ export default function StudentDashboardPage() {
             return () => {
                 if (playerRef.current?.destroy) playerRef.current.destroy();
             };
-        }, [mission.videoUrl, quizStarted]);
+        }, [mission.videoUrl, quizStarted, hasQuiz, onComplete]);
 
         if (!quizStarted) {
             return (
@@ -470,7 +478,7 @@ export default function StudentDashboardPage() {
                     >
                         <span className="material-symbols-outlined group-hover:scale-110 transition-transform">menu_book</span>
                         <span className="hidden lg:block">My Class</span>
-                        <span className="hidden lg:flex ml-auto bg-accent-pink text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(241,91,181,0.5)]">{courses.length}</span>
+                        <span className="hidden lg:flex ml-auto bg-accent-pink text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(241,91,181,0.5)]">{myCourses.length}</span>
                     </button>
                     <button
                         onClick={() => navigate('/dashboard?tab=reflection')}
@@ -543,7 +551,7 @@ export default function StudentDashboardPage() {
                                                 <span className="text-sm font-semibold tracking-wide text-slate-500">수강 중</span>
                                                 <div className="flex flex-col items-center gap-1.5">
                                                     <span className="material-symbols-outlined text-primary text-[32px]">school</span>
-                                                    <span className="text-3xl font-extrabold text-slate-800">{courses.length}<span className="text-lg font-bold text-slate-500 ml-1">개</span></span>
+                                                    <span className="text-3xl font-extrabold text-slate-800">{myCourses.length}<span className="text-lg font-bold text-slate-500 ml-1">개</span></span>
                                                 </div>
                                             </div>
                                             <div className="bg-slate-50 rounded-2xl flex flex-col items-center justify-center p-6 gap-3 border border-secondary/20 hover:border-secondary/50 transition-all hover:shadow-lg hover:-translate-y-1 duration-300 aspect-square">
@@ -566,8 +574,7 @@ export default function StudentDashboardPage() {
 
                                 {/* Star Leaderboard */}
                                 {(() => {
-                                    const assignedCourseIds = user?.courseIds || [];
-                                    const myCoursesForRank = courses.filter(c => assignedCourseIds.includes(c.id));
+                                    const myCoursesForRank = myCourses;
 
                                     // 수업별 별 수 계산 함수
                                     const getStarsForCourse = (studentId, courseId) => {
@@ -668,9 +675,9 @@ export default function StudentDashboardPage() {
                                     </h2>
                                     <button onClick={() => navigate('?tab=myClass')} className="text-sm font-medium text-primary hover:text-secondary hover:underline transition-colors">전체 보기</button>
                                 </div>
-                                {courses.length > 0 ? (
+                                {myCourses.length > 0 ? (
                                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                                        {courses.slice(0, 6).map((course, i) => {
+                                        {myCourses.slice(0, 6).map((course, i) => {
                                             const completion = getCourseCompletion(course.id);
                                             const studentProgress = getStudentProgress(user?.studentId, course.id);
                                             const currentStageIdx = course.stages?.findIndex((stage) => {
@@ -738,9 +745,9 @@ export default function StudentDashboardPage() {
                                         </div>
                                     </div>
 
-                                    {courses.length > 0 ? (
+                                    {myCourses.length > 0 ? (
                                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                                            {courses.map((course) => {
+                                            {myCourses.map((course) => {
                                                 const completion = getCourseCompletion(course.id);
                                                 return (
                                                     <button

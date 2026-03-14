@@ -8,7 +8,7 @@ import { useBadgeStore } from '../stores/useBadgeStore';
 import useThemeStore from '../stores/useThemeStore';
 import { useMarketplaceStore } from '../stores/useMarketplaceStore';
 import { useNotificationStore } from '../stores/useNotificationStore';
-import { useAssessmentStore, ASSESSMENT_METHODS, findNearestScore, ACHIEVEMENT_LEVELS, autoGenerateScoring, scoreFromCheckedCount, getAchievementGrade } from '../stores/useAssessmentStore';
+import { useAssessmentStore, ASSESSMENT_METHODS, ACHIEVEMENT_LEVELS, autoGenerateScoring, scoreFromCheckedCount, getAchievementGrade } from '../stores/useAssessmentStore';
 // Note: addSessionScoreForAllAreas, deleteSessionScoreByLabel are used via useAssessmentStore hook
 import DashboardCalendar from '../components/DashboardCalendar';
 // --- Sub-components for Views ---
@@ -402,7 +402,6 @@ const LearnersManagement = ({ registeredStudents, onAddStudent, onDeleteStudent,
     
     // Badge store selector
     const getUnlockedBadges = useBadgeStore(state => state.getUnlockedBadges);
-    const allBadges = useBadgeStore(state => state.getAllBadges());
 
     const [openMenuId, setOpenMenuId] = useState(null);
     const [formData, setFormData] = useState({ name: '', studentId: '', password: '', grade: '1', admissionYear: new Date().getFullYear() });
@@ -823,52 +822,245 @@ const LearnersManagement = ({ registeredStudents, onAddStudent, onDeleteStudent,
     );
 };
 
+const AdminHelpModal = ({ isOpen, onClose, currentView, availableViews, isSubAdmin }) => {
+    useEffect(() => {
+        if (!isOpen) return undefined;
+
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') {
+                onClose();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
+    if (!isOpen) return null;
+
+    const visibleViewIds = new Set(availableViews.map(view => view.id));
+    const currentViewLabel = availableViews.find(view => view.id === currentView)?.label || 'Current page';
+    const quickStartSteps = [
+        'Dashboard에서 전체 진행률, 최근 활동, 수업 일정을 먼저 확인합니다.',
+        'Learners에서 학생 계정을 만들거나 엑셀로 일괄 등록합니다.',
+        'Class에서 수업을 만든 뒤 Stage와 난이도별 Mission을 채웁니다.',
+        'Reflection에서 과목별 학생 성찰 문장을 모아서 확인합니다.',
+        'Assessments에서 수행평가 영역과 차시 점수를 입력합니다.',
+        'Marketplace와 Settings는 운영 준비가 끝난 뒤 점검합니다.',
+    ];
+    const guideSections = [
+        {
+            id: 'dashboard',
+            label: 'Dashboard',
+            icon: 'dashboard',
+            summary: '운영 현황을 한눈에 보는 시작 화면입니다.',
+            details: [
+                '학생 수, 수업 수, 전체 완료율, 별 사용량을 빠르게 확인할 수 있습니다.',
+                '달력에서 차시가 배치된 날짜를 확인하고, 날짜별 세부 세션을 볼 수 있습니다.',
+                '최근 활동 영역에서 최근 구매와 운영 흐름을 점검할 수 있습니다.',
+            ],
+        },
+        {
+            id: 'learners',
+            label: 'Learners',
+            icon: 'school',
+            summary: '학생 계정 생성, 수정, 삭제, 뱃지 확인을 담당합니다.',
+            details: [
+                'Add Student로 개별 등록하고, Import로 여러 학생을 한 번에 등록할 수 있습니다.',
+                '학생 ID는 로그인 ID로 쓰이므로 중복 없이 관리해야 합니다.',
+                '각 학생의 메뉴에서 정보 수정, 삭제, 뱃지 확인이 가능합니다.',
+            ],
+        },
+        {
+            id: 'class',
+            label: 'Class',
+            icon: 'menu_book',
+            summary: '수업, 스테이지, 미션, 수강 학생을 설정하는 핵심 메뉴입니다.',
+            details: [
+                '먼저 Add Class로 수업을 만들고, 수업 안에서 Stage를 순서대로 추가합니다.',
+                '각 Stage에는 easy, normal, hard 미션을 따로 넣을 수 있습니다.',
+                'Students 탭에서 수강생을 배정해야 학생 화면에서 해당 수업이 보입니다.',
+            ],
+        },
+        {
+            id: 'reflection',
+            label: 'Reflection',
+            icon: 'edit_note',
+            summary: '학생들이 미션 완료 후 남긴 성찰 문장을 과목별로 모아 봅니다.',
+            details: [
+                '과목을 선택하면 해당 수업을 듣는 학생들의 성찰 문장을 한 번에 확인할 수 있습니다.',
+                '학생별로 몇 개의 성찰을 작성했는지와 문장 내용을 함께 볼 수 있습니다.',
+                '스테이지, 난이도, 미션 이름, 작성 시각이 함께 보여 운영 기록으로 활용할 수 있습니다.',
+            ],
+        },
+        {
+            id: 'assessments',
+            label: 'Assessments',
+            icon: 'quiz',
+            summary: '수행평가 기준, 차시 점수, 결과 정리를 관리합니다.',
+            details: [
+                '수업별 평가 계획을 먼저 만들고 성취기준, 평가방법, 요소를 입력합니다.',
+                '차시를 추가한 뒤 학생별 점수 또는 체크리스트를 기록할 수 있습니다.',
+                '누적 결과를 보고 성취율과 등급을 빠르게 확인할 수 있습니다.',
+            ],
+        },
+        {
+            id: 'marketplace',
+            label: 'Marketplace',
+            icon: 'storefront',
+            summary: '학생들이 별로 교환하는 상품과 주문 상태를 관리합니다.',
+            details: [
+                '상품명, 가격, 재고, 아이콘을 입력해 상품을 등록합니다.',
+                '주문 목록에서 준비 중과 수령 완료 상태를 구분해 처리합니다.',
+                '재고가 적은 상품은 수시로 점검하는 편이 안전합니다.',
+            ],
+        },
+        {
+            id: 'subadmins',
+            label: 'Sub-Admin',
+            icon: 'supervisor_account',
+            summary: '서브관리자 계정과 권한 범위를 관리합니다.',
+            details: [
+                '메인 관리자만 서브관리자를 생성, 수정, 삭제하는 것이 좋습니다.',
+                '권한 체크를 통해 보이는 메뉴를 제한할 수 있습니다.',
+                '서브관리자는 허용된 메뉴만 관리자 페이지에서 사용할 수 있습니다.',
+            ],
+        },
+        {
+            id: 'settings',
+            label: 'Settings',
+            icon: 'settings',
+            summary: '테마와 시스템성 옵션을 조정하는 마무리 메뉴입니다.',
+            details: [
+                '운영 전후에 테마와 환경 설정을 점검할 수 있습니다.',
+                '전체 데이터에 영향을 줄 수 있는 작업은 실행 전에 반드시 확인해야 합니다.',
+            ],
+        },
+    ].filter(section => visibleViewIds.has(section.id));
+
+    return (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+            <div className="w-full max-w-6xl max-h-[90vh] overflow-hidden rounded-3xl border border-white/10 bg-admin-card-dark shadow-2xl" onClick={event => event.stopPropagation()}>
+                <div className="flex items-start justify-between gap-4 border-b border-white/10 bg-white/5 px-6 py-5">
+                    <div>
+                        <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-admin-secondary/30 bg-admin-secondary/10 px-3 py-1 text-xs font-semibold text-admin-secondary">
+                            <span className="material-symbols-outlined text-base">help</span>
+                            Admin Guide
+                        </div>
+                        <h3 className="text-2xl font-bold text-white">관리자 페이지 사용 안내</h3>
+                        <p className="mt-2 text-sm text-gray-300">
+                            처음 사용하는 사람도 현재 보고 있는 <span className="text-white font-semibold">{currentViewLabel}</span> 화면을 포함해 전체 운영 흐름을 따라갈 수 있도록 정리했습니다.
+                        </p>
+                    </div>
+                    <button onClick={onClose} className="rounded-xl bg-white/5 p-2 text-gray-400 transition-colors hover:bg-white/10 hover:text-white">
+                        <span className="material-symbols-outlined">close</span>
+                    </button>
+                </div>
+
+                <div className="grid gap-0 lg:grid-cols-[280px_minmax(0,1fr)]">
+                    <aside className="border-b border-white/10 bg-background-dark/40 p-6 lg:border-b-0 lg:border-r">
+                        <div className="rounded-2xl border border-admin-primary/20 bg-admin-primary/10 p-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-admin-secondary">Quick Start</p>
+                            <ol className="mt-4 space-y-3">
+                                {quickStartSteps.map((step, index) => (
+                                    <li key={step} className="flex gap-3 text-sm text-gray-200">
+                                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-admin-secondary/20 text-xs font-bold text-admin-secondary">
+                                            {index + 1}
+                                        </span>
+                                        <span>{step}</span>
+                                    </li>
+                                ))}
+                            </ol>
+                        </div>
+
+                        <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-gray-300">
+                            <p className="font-semibold text-white">처음 운영할 때 추천 순서</p>
+                            <p className="mt-2">학생 등록 전에는 수업 구조를 먼저 만들고, 수업 배정 후에 평가와 상점을 설정하는 편이 가장 덜 헷갈립니다.</p>
+                        </div>
+
+                        <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-gray-300">
+                            <p className="font-semibold text-white">권한 상태</p>
+                            <p className="mt-2">{isSubAdmin ? '현재 계정은 서브관리자이며, 허용된 메뉴만 안내 목록에 표시됩니다.' : '현재 계정은 메인 관리자 기준으로 전체 메뉴 안내를 보고 있습니다.'}</p>
+                        </div>
+                    </aside>
+
+                    <div className="max-h-[calc(90vh-96px)] overflow-y-auto p-6">
+                        <div className="grid gap-4 md:grid-cols-2">
+                            {guideSections.map(section => (
+                                <section
+                                    key={section.id}
+                                    className={`rounded-2xl border p-5 transition-colors ${section.id === currentView ? 'border-admin-secondary/40 bg-admin-secondary/10' : 'border-white/10 bg-white/5'}`}
+                                >
+                                    <div className="flex items-start gap-3">
+                                        <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${section.id === currentView ? 'bg-admin-secondary/20 text-admin-secondary' : 'bg-background-dark text-white'}`}>
+                                            <span className="material-symbols-outlined">{section.icon}</span>
+                                        </div>
+                                        <div className="min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <h4 className="text-lg font-bold text-white">{section.label}</h4>
+                                                {section.id === currentView && (
+                                                    <span className="rounded-full border border-admin-secondary/30 bg-admin-secondary/10 px-2 py-0.5 text-[11px] font-semibold text-admin-secondary">
+                                                        현재 화면
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="mt-1 text-sm text-gray-300">{section.summary}</p>
+                                        </div>
+                                    </div>
+
+                                    <ul className="mt-4 space-y-2 text-sm text-gray-200">
+                                        {section.details.map(detail => (
+                                            <li key={detail} className="flex gap-2">
+                                                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-admin-secondary"></span>
+                                                <span>{detail}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </section>
+                            ))}
+                        </div>
+
+                        <div className="mt-6 rounded-2xl border border-admin-green/20 bg-admin-green/10 p-5">
+                            <h4 className="text-lg font-bold text-white">초보자용 운영 팁</h4>
+                            <div className="mt-3 grid gap-3 md:grid-cols-3">
+                                <div className="rounded-xl border border-white/10 bg-black/10 p-4 text-sm text-gray-200">
+                                    <p className="font-semibold text-white">1. 먼저 틀을 만드세요</p>
+                                    <p className="mt-2">수업, Stage, Mission을 먼저 만든 뒤 학생을 배정하면 이후 수정이 훨씬 적습니다.</p>
+                                </div>
+                                <div className="rounded-xl border border-white/10 bg-black/10 p-4 text-sm text-gray-200">
+                                    <p className="font-semibold text-white">2. 차시는 날짜 기준으로 관리하세요</p>
+                                    <p className="mt-2">Assessments의 차시 날짜가 Dashboard 달력과 연결되므로 실제 수업 날짜로 입력하는 편이 좋습니다.</p>
+                                </div>
+                                <div className="rounded-xl border border-white/10 bg-black/10 p-4 text-sm text-gray-200">
+                                    <p className="font-semibold text-white">3. 큰 작업 전에는 확인</p>
+                                    <p className="mt-2">학생 삭제, 수업 삭제, 전체 데이터 초기화 같은 작업은 되돌리기 어려우니 실행 전 한 번 더 확인해야 합니다.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const createMissionFormData = (mission) => ({
+    title: mission?.title || '',
+    type: mission?.type || 'video',
+    description: mission?.description || '',
+    videoUrl: mission?.videoUrl || '',
+    taskDescription: mission?.taskDescription || '',
+    tutorialSteps: mission?.tutorialSteps || [],
+    htmlContent: mission?.htmlContent || '',
+    htmlFileName: mission?.htmlFileName || '',
+    hasQuiz: (mission?.quizQuestions && mission.quizQuestions.length > 0) || false,
+    quizQuestions: mission?.quizQuestions || [],
+});
+
 const MissionEditorModal = ({ isOpen, onClose, mission, onSave, difficulty }) => {
     const MAX_TUTORIAL_HTML_BYTES = 50 * 1024 * 1024; // 50 MB
-    const [formData, setFormData] = useState({
-        title: '',
-        type: 'video',
-        description: '',
-        videoUrl: '',
-        taskDescription: '',
-        tutorialSteps: [],
-        htmlContent: '',
-        htmlFileName: '',
-        hasQuiz: false,
-        quizQuestions: []
-    });
+    const [formData, setFormData] = useState(() => createMissionFormData(mission));
     const [uploadError, setUploadError] = useState('');
-
-    useEffect(() => {
-        if (mission) {
-            setFormData({
-                title: mission.title || '',
-                type: mission.type || 'video',
-                description: mission.description || '',
-                videoUrl: mission.videoUrl || '',
-                taskDescription: mission.taskDescription || '',
-                tutorialSteps: mission.tutorialSteps || [],
-                htmlContent: mission.htmlContent || '',
-                htmlFileName: mission.htmlFileName || '',
-                hasQuiz: (mission.quizQuestions && mission.quizQuestions.length > 0) || false,
-                quizQuestions: mission.quizQuestions || []
-            });
-        } else {
-            setFormData({
-                title: '',
-                type: 'video',
-                description: '',
-                videoUrl: '',
-                taskDescription: '',
-                tutorialSteps: [],
-                htmlContent: '',
-                htmlFileName: '',
-                hasQuiz: false,
-                quizQuestions: []
-            });
-        }
-        setUploadError('');
-    }, [mission, isOpen]);
 
     if (!isOpen) return null;
 
@@ -1488,6 +1680,7 @@ const CourseEditor = ({ course, onBack }) => {
 
             {/* Mission Modal */}
             <MissionEditorModal
+                key={`${editingMission.stageId || 'new'}-${editingMission.difficulty || 'none'}-${editingMission.data?.title || 'blank'}-${isMissionModalOpen ? 'open' : 'closed'}`}
                 isOpen={isMissionModalOpen}
                 onClose={() => setIsMissionModalOpen(false)}
                 mission={editingMission.data}
@@ -1716,8 +1909,8 @@ const AssessmentsManagement = ({ courses, registeredStudents }) => {
         updatePerformanceArea, removePerformanceArea,
         studentScores, setWrittenExamScore, calculateTotal, getAreaFinalScore,
         uploadNeisScores, addSessionComment, deleteSessionComment,
-        getStudentComments, saveGeneratedReport, generatedReports,
-        sessionScores, addSessionScore, updateSessionStudentScore, deleteSessionScore,
+        getStudentComments, saveGeneratedReport: _saveGeneratedReport,
+        updateSessionStudentScore, deleteSessionScore,
         getSessionScoresForArea,
     } = useAssessmentStore();
 
@@ -1729,8 +1922,8 @@ const AssessmentsManagement = ({ courses, registeredStudents }) => {
     const [newAreaWeight, setNewAreaWeight] = useState(10);
     const [commentDate, setCommentDate] = useState(new Date().toISOString().split('T')[0]);
     const [commentText, setCommentText] = useState('');
-    const [aiLoading, setAiLoading] = useState(false);
-    const [aiStudentId, setAiStudentId] = useState(null);
+    const [_aiLoading, setAiLoading] = useState(false);
+    const [_aiStudentId, setAiStudentId] = useState(null);
 
     // Edit area modal states
     const [editField, setEditField] = useState({ achievementStandard: '', newElement: '', newLevelLabel: '', newLevelDesc: '', newLevelScore: '' });
@@ -1764,13 +1957,13 @@ const AssessmentsManagement = ({ courses, registeredStudents }) => {
         e.target.value = '';
     };
 
-    const handleGenerateReport = async (studentId) => {
+    const _handleGenerateReport = async (studentId) => {
         setAiLoading(true); setAiStudentId(studentId);
         const comments = getStudentComments(selectedCourseId, studentId);
         const student = registeredStudents.find(s => s.studentId === studentId);
         const total = calculateTotal(selectedCourseId, studentId);
         const report = `[AI 과세특 초안 - ${student?.name || studentId}]\n\n${selectedCourse?.title || '수업'} 과목에서 꾸준한 학습 참여를 보이며, 수업 활동에 적극적으로 임하는 모습이 관찰됨. 특히 실습 과제에서 높은 집중력을 발휘하였음. ${comments.length > 0 ? `총 ${comments.length}회의 수업에서 교사 코멘트가 기록되었으며, ` : ''}종합 점수 ${total?.total || '-'}점.\n\n※ Gemini API 키를 설정하면 실제 AI 과세특이 생성됩니다.`;
-        saveGeneratedReport(selectedCourseId, studentId, report);
+        _saveGeneratedReport(selectedCourseId, studentId, report);
         setAiLoading(false); setAiStudentId(null);
     };
 
@@ -2973,14 +3166,56 @@ function MarketplaceManagement() {
 
 const SettingsManagement = () => {
     const { user } = useAuthStore();
+    const changeAdminPassword = useAuthStore(state => state.changeAdminPassword);
     const { isDark, toggleTheme } = useThemeStore();
     const { clearAllProgress } = useProgressStore();
+    const [passwordForm, setPasswordForm] = useState({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+    });
+    const [passwordStatus, setPasswordStatus] = useState({ type: '', message: '' });
 
     const handleResetProgress = () => {
         if (window.confirm('WARNING: This will delete ALL student progress data. This action cannot be undone. Are you sure?')) {
             clearAllProgress();
             alert('All progress data has been reset.');
         }
+    };
+
+    const handleAdminPasswordChange = (event) => {
+        event.preventDefault();
+        setPasswordStatus({ type: '', message: '' });
+
+        const currentPassword = passwordForm.currentPassword.trim();
+        const nextPassword = passwordForm.newPassword.trim();
+        const confirmPassword = passwordForm.confirmPassword.trim();
+
+        if (!currentPassword || !nextPassword || !confirmPassword) {
+            setPasswordStatus({ type: 'error', message: '모든 비밀번호 칸을 입력해주세요.' });
+            return;
+        }
+
+        if (nextPassword !== confirmPassword) {
+            setPasswordStatus({ type: 'error', message: '새 비밀번호 확인이 일치하지 않습니다.' });
+            return;
+        }
+
+        const result = changeAdminPassword(currentPassword, nextPassword);
+        if (!result?.ok) {
+            const message = result?.reason === 'incorrect_password'
+                ? '현재 비밀번호가 올바르지 않습니다.'
+                : '비밀번호를 변경하지 못했습니다.';
+            setPasswordStatus({ type: 'error', message });
+            return;
+        }
+
+        setPasswordForm({
+            currentPassword: '',
+            newPassword: '',
+            confirmPassword: '',
+        });
+        setPasswordStatus({ type: 'success', message: '기본 관리자 비밀번호를 변경했습니다.' });
     };
 
     return (
@@ -3015,6 +3250,66 @@ const SettingsManagement = () => {
                         </div>
                     </div>
                 </div>
+
+                {user?.role === 'admin' && (
+                    <div className="bg-admin-card-dark rounded-2xl border border-white/5 p-6 space-y-6">
+                        <div className="flex items-center gap-4 border-b border-white/5 pb-6">
+                            <span className="material-symbols-outlined text-admin-yellow text-3xl">lock</span>
+                            <div>
+                                <h4 className="text-lg font-bold text-white">Admin Password</h4>
+                                <p className="text-sm text-gray-400">Change the default admin account password</p>
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleAdminPasswordChange} className="space-y-4">
+                            <div className="grid gap-4 md:grid-cols-3">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Current Password</label>
+                                    <input
+                                        type="password"
+                                        value={passwordForm.currentPassword}
+                                        onChange={event => setPasswordForm(prev => ({ ...prev, currentPassword: event.target.value }))}
+                                        className="w-full bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-admin-primary transition-colors"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">New Password</label>
+                                    <input
+                                        type="password"
+                                        value={passwordForm.newPassword}
+                                        onChange={event => setPasswordForm(prev => ({ ...prev, newPassword: event.target.value }))}
+                                        className="w-full bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-admin-primary transition-colors"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5">Confirm Password</label>
+                                    <input
+                                        type="password"
+                                        value={passwordForm.confirmPassword}
+                                        onChange={event => setPasswordForm(prev => ({ ...prev, confirmPassword: event.target.value }))}
+                                        className="w-full bg-background-dark border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-admin-primary transition-colors"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-4">
+                                <p className="text-xs text-gray-500">이 변경은 기본 관리자 `admin` 계정에만 적용됩니다.</p>
+                                <button
+                                    type="submit"
+                                    className="px-4 py-2.5 rounded-xl bg-admin-primary hover:bg-admin-primary/90 text-white text-sm font-medium transition-colors shadow-lg shadow-admin-primary/20"
+                                >
+                                    Change Password
+                                </button>
+                            </div>
+
+                            {passwordStatus.message && (
+                                <div className={`rounded-xl px-4 py-3 text-sm ${passwordStatus.type === 'success' ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border border-red-500/20 bg-red-500/10 text-red-300'}`}>
+                                    {passwordStatus.message}
+                                </div>
+                            )}
+                        </form>
+                    </div>
+                )}
 
                 {/* System Preferences Card */}
                 <div className="bg-admin-card-dark rounded-2xl border border-white/5 p-6 space-y-6">
@@ -3089,9 +3384,142 @@ const SettingsManagement = () => {
     );
 };
 
+const ReflectionManagement = ({ courses, registeredStudents, reflections, isSubAdmin, accessibleCourseIds }) => {
+    const availableCourses = useMemo(() => {
+        if (!isSubAdmin) return courses;
+        const allowedCourseIds = new Set(accessibleCourseIds || []);
+        return courses.filter(course => allowedCourseIds.has(course.id));
+    }, [accessibleCourseIds, courses, isSubAdmin]);
+
+    const [selectedCourseId, setSelectedCourseId] = useState(availableCourses[0]?.id || '');
+    const activeCourseId = availableCourses.some(course => course.id === selectedCourseId)
+        ? selectedCourseId
+        : (availableCourses[0]?.id || '');
+    const selectedCourse = availableCourses.find(course => course.id === activeCourseId) || null;
+    const enrolledStudents = useMemo(
+        () => registeredStudents.filter(student => student.courseIds?.includes(activeCourseId)),
+        [activeCourseId, registeredStudents]
+    );
+    const courseReflections = useMemo(
+        () => [...reflections]
+            .filter(reflection => reflection.courseId === activeCourseId)
+            .sort((a, b) => b.timestamp - a.timestamp),
+        [activeCourseId, reflections]
+    );
+    const reflectionMapByStudentId = useMemo(
+        () => courseReflections.reduce((acc, reflection) => {
+            if (!acc[reflection.studentId]) acc[reflection.studentId] = [];
+            acc[reflection.studentId].push(reflection);
+            return acc;
+        }, {}),
+        [courseReflections]
+    );
+    const studentReflectionRows = useMemo(
+        () => enrolledStudents.map(student => ({
+            ...student,
+            reflections: reflectionMapByStudentId[student.studentId] || [],
+        })),
+        [enrolledStudents, reflectionMapByStudentId]
+    );
+    const studentsWithReflections = studentReflectionRows.filter(student => student.reflections.length > 0).length;
+
+    if (availableCourses.length === 0) {
+        return (
+            <div className="max-w-5xl mx-auto space-y-6">
+                <div>
+                    <h3 className="text-2xl font-bold text-white">Reflection</h3>
+                    <p className="text-gray-400 text-sm mt-1">학생 성찰 문장을 과목별로 확인합니다.</p>
+                </div>
+                <div className="rounded-3xl border border-white/10 bg-admin-card-dark p-10 text-center text-gray-400">
+                    조회할 수 있는 수업이 없습니다.
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="max-w-7xl mx-auto space-y-8">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                    <h3 className="text-2xl font-bold text-white">Reflection</h3>
+                    <p className="text-gray-400 text-sm mt-1">과목별로 학생들이 작성한 성찰 문장을 한곳에서 확인합니다.</p>
+                </div>
+                <div className="w-full lg:w-80">
+                    <label className="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Course</label>
+                    <select
+                        value={activeCourseId}
+                        onChange={event => setSelectedCourseId(event.target.value)}
+                        className="w-full rounded-2xl border border-white/10 bg-admin-card-dark px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-admin-secondary"
+                    >
+                        {availableCourses.map(course => (
+                            <option key={course.id} value={course.id} className="bg-[#1e1e2e] text-white">
+                                {course.title}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-3xl border border-white/10 bg-admin-card-dark p-6">
+                    <p className="text-sm text-gray-400">선택 과목</p>
+                    <p className="mt-2 text-2xl font-bold text-white">{selectedCourse?.title || '-'}</p>
+                </div>
+                <div className="rounded-3xl border border-white/10 bg-admin-card-dark p-6">
+                    <p className="text-sm text-gray-400">수강 학생 / 작성 학생</p>
+                    <p className="mt-2 text-2xl font-bold text-white">{enrolledStudents.length} / {studentsWithReflections}</p>
+                </div>
+                <div className="rounded-3xl border border-white/10 bg-admin-card-dark p-6">
+                    <p className="text-sm text-gray-400">전체 성찰 문장</p>
+                    <p className="mt-2 text-2xl font-bold text-white">{courseReflections.length}</p>
+                </div>
+            </div>
+
+            <div className="space-y-4">
+                {studentReflectionRows.map(student => (
+                    <section key={student.studentId} className="rounded-3xl border border-white/10 bg-admin-card-dark p-6">
+                        <div className="flex flex-col gap-3 border-b border-white/10 pb-4 md:flex-row md:items-center md:justify-between">
+                            <div>
+                                <h4 className="text-lg font-bold text-white">{student.name}</h4>
+                                <p className="text-sm text-gray-400">{student.studentId}</p>
+                            </div>
+                            <div className="inline-flex items-center rounded-full border border-admin-secondary/20 bg-admin-secondary/10 px-3 py-1 text-sm font-semibold text-admin-secondary">
+                                {student.reflections.length} reflections
+                            </div>
+                        </div>
+
+                        {student.reflections.length > 0 ? (
+                            <div className="mt-4 space-y-3">
+                                {student.reflections.map((entry, index) => (
+                                    <article key={`${student.studentId}-${entry.timestamp}-${index}`} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                                        <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-gray-400">
+                                            <span className="rounded-full bg-white/10 px-2.5 py-1 text-white">{entry.stageTitle || 'Stage'}</span>
+                                            <span className="rounded-full bg-white/10 px-2.5 py-1 uppercase">{entry.difficulty}</span>
+                                            {entry.missionTitle && (
+                                                <span className="rounded-full bg-white/10 px-2.5 py-1">{entry.missionTitle}</span>
+                                            )}
+                                            <span>{new Date(entry.timestamp).toLocaleString('ko-KR')}</span>
+                                        </div>
+                                        <p className="mt-3 text-base leading-7 text-gray-100">{entry.reflection}</p>
+                                    </article>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="mt-4 rounded-2xl border border-dashed border-white/10 bg-white/5 px-4 py-6 text-sm text-gray-500">
+                                아직 이 과목에서 작성된 성찰이 없습니다.
+                            </div>
+                        )}
+                    </section>
+                ))}
+            </div>
+        </div>
+    );
+};
+
 const SUBADMIN_PERMISSION_OPTIONS = [
     { key: 'dashboard', label: 'Dashboard' },
     { key: 'learners', label: 'Learners' },
+    { key: 'reflection', label: 'Reflection' },
     { key: 'class', label: 'Class' },
     { key: 'assessments', label: 'Assessments' },
     { key: 'marketplace', label: 'Marketplace' },
@@ -3365,11 +3793,12 @@ export default function AdminPage() {
     const { user, logout, registeredStudents, registerStudent, removeStudent, bulkRegisterStudents, updateStudent, subAdmins, addSubAdmin, removeSubAdmin, updateSubAdmin } = useAuthStore();
     const sessionScores = useAssessmentStore(state => state.sessionScores);
     const { courses, addCourse, deleteCourse } = useStageStore();
-    const { submissions, totalStars, progress } = useProgressStore();
+    const { submissions: _submissions, totalStars, progress, reflections = [] } = useProgressStore();
     const isSubAdmin = user?.role === 'subadmin';
     const [currentView, setCurrentView] = useState('dashboard');
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchTerm] = useState('');
     const [showNotifPanel, setShowNotifPanel] = useState(false);
+    const [showHelpModal, setShowHelpModal] = useState(false);
     const [notifTarget, setNotifTarget] = useState('all');
     const [notifTitle, setNotifTitle] = useState('');
     const [notifMessage, setNotifMessage] = useState('');
@@ -3386,6 +3815,7 @@ export default function AdminPage() {
     const visibleAdminViews = [
         { id: 'dashboard', label: 'Dashboard', icon: 'dashboard', emphasized: true },
         { id: 'learners', label: 'Learners', icon: 'school' },
+        { id: 'reflection', label: 'Reflection', icon: 'edit_note' },
         { id: 'class', label: 'Class', icon: 'menu_book' },
         { id: 'assessments', label: 'Assessments', icon: 'quiz' },
         { id: 'marketplace', label: 'Marketplace', icon: 'storefront' },
@@ -3451,6 +3881,16 @@ export default function AdminPage() {
                     >
                         <span className="material-symbols-outlined group-hover:scale-110 transition-transform text-white">school</span>
                         <span className={`font-medium ${currentView === 'learners' ? 'text-white' : 'text-white/80 group-hover:text-white'}`}>Learners</span>
+                    </button>}
+                    {hasViewAccess('reflection') && <button
+                        onClick={() => setCurrentView('reflection')}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-lg w-full text-left transition-all group ${currentView === 'reflection'
+                            ? 'bg-admin-secondary shadow-lg shadow-admin-secondary/20'
+                            : 'hover:bg-white/10 text-white/80 hover:text-white'
+                            }`}
+                    >
+                        <span className="material-symbols-outlined group-hover:scale-110 transition-transform text-white">edit_note</span>
+                        <span className={`font-medium ${currentView === 'reflection' ? 'text-white' : 'text-white/80 group-hover:text-white'}`}>Reflection</span>
                     </button>}
                     {/* Class (Project Classes) */}
                     {hasViewAccess('class') && <button
@@ -3535,6 +3975,7 @@ export default function AdminPage() {
                         <h2 className="text-2xl font-bold text-white tracking-tight">
                             {currentView === 'dashboard' ? 'Dashboard Overview' :
                                 currentView === 'learners' ? 'Learners' :
+                                    currentView === 'reflection' ? 'Reflection' :
                                     currentView.charAt(0).toUpperCase() + currentView.slice(1)}
                         </h2>
                     </div>
@@ -3548,12 +3989,24 @@ export default function AdminPage() {
                                     <span className="absolute top-1.5 right-1.5 h-4 w-4 rounded-full bg-admin-pink text-[9px] text-white font-bold flex items-center justify-center border-2 border-admin-card-dark">{notifications.length > 9 ? '9+' : notifications.length}</span>
                                 )}
                             </button>
-                            <button className="p-2.5 rounded-xl bg-admin-card-dark hover:bg-white/5 text-gray-400 hover:text-white transition-colors">
+                            <button
+                                onClick={() => setShowHelpModal(true)}
+                                className="p-2.5 rounded-xl bg-admin-card-dark hover:bg-white/5 text-gray-400 hover:text-white transition-colors"
+                                aria-label="관리자 페이지 사용 안내 열기"
+                            >
                                 <span className="material-symbols-outlined text-[22px]">help</span>
                             </button>
                         </div>
                     </div>
                 </header>
+
+                <AdminHelpModal
+                    isOpen={showHelpModal}
+                    onClose={() => setShowHelpModal(false)}
+                    currentView={currentView}
+                    availableViews={visibleAdminViews}
+                    isSubAdmin={isSubAdmin}
+                />
 
                 {/* Notification Panel */}
                 {showNotifPanel && (
@@ -3684,6 +4137,15 @@ export default function AdminPage() {
                             onUpdateStudent={updateStudent}
                         />
                     )}
+                    {currentView === 'reflection' && (
+                        <ReflectionManagement
+                            courses={courses}
+                            registeredStudents={registeredStudents}
+                            reflections={reflections}
+                            isSubAdmin={isSubAdmin}
+                            accessibleCourseIds={user?.courseIds}
+                        />
+                    )}
                     {currentView === 'class' && (
                         <ClassManagement
                             courses={courses.filter(c => c.title.toLowerCase().includes(searchTerm.toLowerCase()))}
@@ -3712,7 +4174,7 @@ export default function AdminPage() {
                     {currentView === 'settings' && (
                         <SettingsManagement />
                     )}
-                    {currentView !== 'dashboard' && currentView !== 'learners' && currentView !== 'class' && currentView !== 'assessments' && currentView !== 'marketplace' && currentView !== 'subadmins' && currentView !== 'settings' && (
+                    {currentView !== 'dashboard' && currentView !== 'learners' && currentView !== 'reflection' && currentView !== 'class' && currentView !== 'assessments' && currentView !== 'marketplace' && currentView !== 'subadmins' && currentView !== 'settings' && (
                         <div className="flex items-center justify-center h-full text-gray-500">
                             Component for {currentView} is under construction.
                         </div>

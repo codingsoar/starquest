@@ -1,5 +1,4 @@
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useStageStore } from '../stores/useStageStore';
 import { useAssessmentStore, getAchievementGrade } from '../stores/useAssessmentStore';
@@ -7,27 +6,25 @@ import StudentLayout from '../components/StudentLayout';
 import StudentHeaderActions from '../components/StudentHeaderActions';
 
 export default function StudentAssessmentsPage() {
-    const navigate = useNavigate();
     const { user } = useAuthStore();
     const { courses } = useStageStore();
     const {
         assessmentPlans, calculateTotal, getAreaFinalScore,
-        getStudentComments, generatedReports, studentScores,
+        getStudentComments,
         getSessionScoresForArea,
     } = useAssessmentStore();
 
-    const assignedCourses = useMemo(() => {
-        if (!user?.courseIds) return [];
-        return courses.filter(c => user.courseIds.includes(c.id));
-    }, [courses, user?.courseIds]);
+    const assignedCourses = !user?.courseIds ? [] : courses.filter(c => user.courseIds.includes(c.id));
 
-    const [selectedCourseId, setSelectedCourseId] = useState(assignedCourses[0]?.id || '');
+    const [preferredCourseId, setPreferredCourseId] = useState('');
     const [expandedArea, setExpandedArea] = useState(null);
+    const selectedCourseId = assignedCourses.some(course => course.id === preferredCourseId)
+        ? preferredCourseId
+        : (assignedCourses[0]?.id || '');
 
     const plan = assessmentPlans[selectedCourseId] || null;
     const totalResult = calculateTotal(selectedCourseId, user?.studentId);
     const comments = getStudentComments(selectedCourseId, user?.studentId);
-    const studentData = studentScores?.[selectedCourseId]?.[user?.studentId];
 
     const getGradeColor = (grade) => {
         const colors = {
@@ -87,7 +84,7 @@ export default function StudentAssessmentsPage() {
                             <span className="text-sm font-medium text-slate-500">수업 선택:</span>
                             <select
                                 value={selectedCourseId}
-                                onChange={e => setSelectedCourseId(e.target.value)}
+                                onChange={e => setPreferredCourseId(e.target.value)}
                                 className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-sm font-medium focus:ring-2 focus:ring-primary focus:border-primary outline-none"
                             >
                                 {assignedCourses.map(c => (
@@ -181,10 +178,6 @@ export default function StudentAssessmentsPage() {
                                         const result = getAreaFinalScore(selectedCourseId, user?.studentId, area.id);
                                         const sessions = getSessionScoresForArea(selectedCourseId, area.id);
                                         const isExpanded = expandedArea === area.id;
-                                        const maxScore = area.scoringLevels.length > 0
-                                            ? Math.max(...area.scoringLevels.map(l => l.score))
-                                            : 0;
-
                                         return (
                                             <div key={area.id} className={`bg-white rounded-2xl border ${color.border} overflow-hidden shadow-sm hover:shadow-md transition-shadow`}>
                                                 <button

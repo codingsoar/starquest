@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useBadgeStore } from '../stores/useBadgeStore';
 import { useProgressStore } from '../stores/useProgressStore';
@@ -34,7 +34,7 @@ export default function BadgeNotification() {
     const progress = useProgressStore(state => state.progress);
     const totalStars = useProgressStore(state => state.totalStars);
     const submissions = useProgressStore(state => state.submissions);
-    const sessions = useAssessmentStore(state => state.sessions);
+    const sessionScores = useAssessmentStore(state => state.sessionScores);
     const purchases = useMarketplaceStore(state => state.purchases);
     
     useEffect(() => {
@@ -45,17 +45,14 @@ export default function BadgeNotification() {
             }, 500);
             return () => clearTimeout(timer);
         }
-    }, [user, progress, totalStars, submissions, sessions, purchases]);
+    }, [user, progress, totalStars, submissions, sessionScores, purchases]);
 
     return (
         <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none">
             <AnimatePresence>
                 {notifications.map((notif) => (
-                    <motion.div
+                    <div
                         key={notif.id}
-                        initial={{ opacity: 0, y: 50, scale: 0.9 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 20, scale: 0.9 }}
                         className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-4 flex items-center gap-4 border-2 border-primary/20 pointer-events-auto"
                         style={{ minWidth: '300px' }}
                     >
@@ -73,7 +70,7 @@ export default function BadgeNotification() {
                                 {notif.desc}
                             </p>
                         </div>
-                    </motion.div>
+                    </div>
                 ))}
             </AnimatePresence>
         </div>

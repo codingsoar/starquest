@@ -27,8 +27,8 @@ export const useNotificationStore = create(
             markAsRead: (notifId, studentId) => {
                 set(state => ({
                     notifications: state.notifications.map(n =>
-                        n.id === notifId && !n.readBy.includes(studentId)
-                            ? { ...n, readBy: [...n.readBy, studentId] }
+                        n.id === notifId && !(Array.isArray(n.readBy) ? n.readBy : []).includes(studentId)
+                            ? { ...n, readBy: [...(Array.isArray(n.readBy) ? n.readBy : []), studentId] }
                             : n
                     ),
                 }));
@@ -38,8 +38,8 @@ export const useNotificationStore = create(
             markAllAsRead: (studentId) => {
                 set(state => ({
                     notifications: state.notifications.map(n =>
-                        !n.readBy.includes(studentId)
-                            ? { ...n, readBy: [...n.readBy, studentId] }
+                        !(Array.isArray(n.readBy) ? n.readBy : []).includes(studentId)
+                            ? { ...n, readBy: [...(Array.isArray(n.readBy) ? n.readBy : []), studentId] }
                             : n
                     ),
                 }));
@@ -70,10 +70,28 @@ export const useNotificationStore = create(
                 return get().notifications.filter(n => {
                     const visible = n.to === 'all' || n.to === studentId ||
                         (n.to.startsWith('class:') && courseIds.includes(n.to.replace('class:', '')));
-                    return visible && !n.readBy.includes(studentId);
+                    return visible && !(Array.isArray(n.readBy) ? n.readBy : []).includes(studentId);
                 }).length;
             },
         }),
-        { name: 'starquest-notifications' }
+        {
+            name: 'starquest-notifications',
+            version: 2,
+            migrate: (persistedState) => {
+                if (!persistedState || typeof persistedState !== 'object') {
+                    return persistedState;
+                }
+
+                return {
+                    ...persistedState,
+                    notifications: Array.isArray(persistedState.notifications)
+                        ? persistedState.notifications.map(notification => ({
+                            ...notification,
+                            readBy: Array.isArray(notification.readBy) ? notification.readBy : [],
+                        }))
+                        : [],
+                };
+            },
+        }
     )
 );

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@heroui/react';
 import { Star } from 'lucide-react';
 import { useAuthStore } from '../stores/useAuthStore';
@@ -17,7 +16,6 @@ const categories = [
 ];
 
 export default function MarketplacePage() {
-    const navigate = useNavigate();
     const { user } = useAuthStore();
     const { totalStars, spendStars } = useProgressStore();
     const { shopItems, purchaseItem, getStudentPurchases } = useMarketplaceStore();

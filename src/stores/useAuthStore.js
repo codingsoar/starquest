@@ -2,6 +2,11 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { defaultStudents } from '../data/sampleCourses';
 
+const DEFAULT_ADMIN_CREDENTIALS = {
+    adminId: 'admin',
+    password: 'admin1234',
+};
+
 const normalizeStudent = (student) => ({
     ...student,
     courseIds: Array.isArray(student.courseIds) ? student.courseIds : [],
@@ -13,6 +18,7 @@ const normalizeStudent = (student) => ({
 const DEFAULT_SUBADMIN_PERMISSIONS = {
     dashboard: true,
     learners: true,
+    reflection: true,
     class: true,
     assessments: true,
     marketplace: true,
@@ -34,6 +40,7 @@ export const useAuthStore = create(
         (set, get) => ({
             user: null,
             isAdmin: false,
+            adminCredentials: DEFAULT_ADMIN_CREDENTIALS,
             registeredStudents: defaultStudents.map(normalizeStudent),
             subAdmins: [],
 
@@ -48,7 +55,7 @@ export const useAuthStore = create(
             },
 
             loginAdmin: (adminId, password) => {
-                const defaultAdmin = { adminId: 'admin', password: 'admin1234' };
+                const defaultAdmin = get().adminCredentials || DEFAULT_ADMIN_CREDENTIALS;
                 if (adminId === defaultAdmin.adminId && password === defaultAdmin.password) {
                     set({ user: { adminId, name: '관리자', role: 'admin' }, isAdmin: true });
                     return true;
@@ -73,6 +80,26 @@ export const useAuthStore = create(
             },
 
             logout: () => set({ user: null, isAdmin: false }),
+
+            changeAdminPassword: (currentPassword, newPassword) => {
+                const adminCredentials = get().adminCredentials || DEFAULT_ADMIN_CREDENTIALS;
+                if (adminCredentials.password !== currentPassword) {
+                    return { ok: false, reason: 'incorrect_password' };
+                }
+
+                const trimmedNextPassword = newPassword.trim();
+                if (!trimmedNextPassword) {
+                    return { ok: false, reason: 'invalid_input' };
+                }
+
+                set({
+                    adminCredentials: {
+                        ...adminCredentials,
+                        password: trimmedNextPassword,
+                    },
+                });
+                return { ok: true };
+            },
 
             registerStudent: (studentId, name, password, grade, admissionYear) => {
                 if (!studentId || !name) return { ok: false, reason: 'invalid_input' };
@@ -279,11 +306,15 @@ export const useAuthStore = create(
         }),
         {
             name: 'starquest-auth',
-            version: 4,
+            version: 5,
             migrate: (persistedState) => {
                 if (!persistedState) return persistedState;
                 return {
                     ...persistedState,
+                    adminCredentials: {
+                        ...DEFAULT_ADMIN_CREDENTIALS,
+                        ...(persistedState.adminCredentials || {}),
+                    },
                     registeredStudents: (persistedState.registeredStudents || []).map(normalizeStudent),
                     subAdmins: (persistedState.subAdmins || []).map(normalizeSubAdmin),
                     user: persistedState.user?.role === 'student'

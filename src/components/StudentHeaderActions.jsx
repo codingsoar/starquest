@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useNotificationStore } from '../stores/useNotificationStore';
@@ -14,21 +14,16 @@ export default function StudentHeaderActions() {
 
     const myStars = totalStars[user?.studentId] || 0;
     const assignedCourseIds = user?.courseIds || [];
-
-    const myNotifications = useMemo(() => {
-        if (!user?.studentId) return [];
-        return notifications.filter(n => {
-            if (n.to === 'all') return true;
-            if (n.to === user.studentId) return true;
-            if (n.to.startsWith('class:')) {
-                const courseId = n.to.replace('class:', '');
-                return assignedCourseIds.includes(courseId);
-            }
-            return false;
-        });
-    }, [notifications, user?.studentId, assignedCourseIds]);
-
-    const unreadCount = myNotifications.filter(n => !n.readBy.includes(user?.studentId)).length;
+    const myNotifications = !user?.studentId ? [] : notifications.filter(n => {
+        if (n.to === 'all') return true;
+        if (n.to === user.studentId) return true;
+        if (n.to.startsWith('class:')) {
+            const courseId = n.to.replace('class:', '');
+            return assignedCourseIds.includes(courseId);
+        }
+        return false;
+    });
+    const unreadCount = myNotifications.filter(n => !(Array.isArray(n.readBy) ? n.readBy : []).includes(user?.studentId)).length;
 
     return (
         <div className="flex items-center gap-3 md:gap-4 ml-auto">
@@ -83,7 +78,8 @@ export default function StudentHeaderActions() {
                                 <div className="text-center text-slate-400 py-8 text-sm">알림이 없습니다.</div>
                             )}
                             {myNotifications.map(n => {
-                                const isUnread = !n.readBy.includes(user?.studentId);
+                                const readBy = Array.isArray(n.readBy) ? n.readBy : [];
+                                const isUnread = !readBy.includes(user?.studentId);
                                 return (
                                     <div
                                         key={n.id}
