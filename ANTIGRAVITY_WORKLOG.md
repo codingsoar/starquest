@@ -1258,3 +1258,33 @@ Copy this block for every new entry:
 
 ### Notes
 - The existing commit `608955a` was pushed first; this worklog follow-up is being recorded afterward for future handoff continuity.
+
+## 2026-03-16 - Admin Login Failure Diagnosis And Fix
+
+### Request
+- Check why the admin account could not log in.
+
+### Scope
+- Admin/student login flow in the auth store and login pages.
+- Server-side SQLite initialization for the default admin account.
+
+### Implemented
+- Identified two causes: async login functions were being called synchronously in the login pages, and the server DB did not seed a default `admin` user.
+- Updated `AdminLoginPage` and `StudentLoginPage` to await login results and show a temporary submitting state.
+- Updated `useAuthStore` login functions to fall back to local persisted admin/student data if the API is unavailable or does not authenticate.
+- Added default admin seeding in `server/database.js` with `INSERT OR IGNORE` for `admin / admin1234`.
+
+### Validation
+- `npx eslint src\stores\useAuthStore.js src\pages\AdminLoginPage.jsx src\pages\StudentLoginPage.jsx` -> Success
+- `node -` SQLite check for `admin` user -> Success
+
+### Files
+- `src/stores/useAuthStore.js`
+- `src/pages/AdminLoginPage.jsx`
+- `src/pages/StudentLoginPage.jsx`
+- `server/database.js`
+- `ANTIGRAVITY_WORKLOG.md`
+
+### Notes
+- There were already unrelated in-progress edits in several files, including `src/stores/useAuthStore.js` and `src/pages/StudentLoginPage.jsx`; the fix was limited to the login path.
+- Changes were not committed or pushed in this task.

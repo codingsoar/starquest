@@ -9,8 +9,9 @@ export default function AdminLoginPage() {
     const [adminId, setAdminId] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
@@ -19,7 +20,11 @@ export default function AdminLoginPage() {
             return;
         }
 
-        if (loginAdmin(adminId.trim(), password)) {
+        setIsSubmitting(true);
+        const ok = await loginAdmin(adminId.trim(), password);
+        setIsSubmitting(false);
+
+        if (ok) {
             navigate('/admin');
             return;
         }
@@ -108,9 +113,9 @@ export default function AdminLoginPage() {
                             {error && <p className="text-sm text-red-500 font-medium">{error}</p>}
 
                             {/* Primary Button */}
-                            <button className="mt-2 w-full bg-admin-primary hover:bg-admin-secondary text-white font-bold text-lg h-12 rounded-xl shadow-lg shadow-admin-primary/25 hover:shadow-admin-secondary/40 transition-all duration-300 transform active:scale-[0.98] flex items-center justify-center gap-2 group">
+                            <button disabled={isSubmitting} className="mt-2 w-full bg-admin-primary hover:bg-admin-secondary text-white font-bold text-lg h-12 rounded-xl shadow-lg shadow-admin-primary/25 hover:shadow-admin-secondary/40 transition-all duration-300 transform active:scale-[0.98] flex items-center justify-center gap-2 group disabled:cursor-not-allowed disabled:opacity-60">
                                 <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">login</span>
-                                <span>Admin Login</span>
+                                <span>{isSubmitting ? 'Signing In...' : 'Admin Login'}</span>
                             </button>
                         </form>
                     </div>

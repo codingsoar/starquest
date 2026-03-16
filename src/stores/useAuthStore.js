@@ -35,6 +35,28 @@ const normalizeSubAdmin = (subAdmin) => ({
     },
 });
 
+const applyStudentLogin = (set, student) => {
+    set({ user: { ...normalizeStudent(student), role: 'student' }, isAdmin: false });
+};
+
+const applyAdminLogin = (set, adminId, name) => {
+    set({ user: { adminId, name, role: 'admin' }, isAdmin: true });
+};
+
+const applySubAdminLogin = (set, subAdmin) => {
+    const normalizedSub = normalizeSubAdmin(subAdmin);
+    set({
+        user: {
+            adminId: normalizedSub.adminId,
+            name: normalizedSub.name,
+            role: 'subadmin',
+            courseIds: normalizedSub.courseIds,
+            permissions: normalizedSub.permissions,
+        },
+        isAdmin: true,
+    });
+};
+
 export const useAuthStore = create(
     persist(
         (set, get) => ({
@@ -44,42 +66,76 @@ export const useAuthStore = create(
             registeredStudents: defaultStudents.map(normalizeStudent),
             subAdmins: [],
 
-            loginStudent: (studentId, password) => {
+            loginStudent: async (studentId, password) => {
+                try {
+                    const response = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: studentId, password })
+                    });
+                    const data = await response.json();
+                    
+                    if (data.success && data.user && data.user.role === 'student') {
+                        applyStudentLogin(set, data.user);
+                        return true;
+                    }
+                } catch (error) {
+                    console.error('Login error:', error);
+                }
+
                 const students = get().registeredStudents;
                 const found = students.find(s => s.studentId === studentId && s.password === password);
                 if (found) {
-                    set({ user: { ...normalizeStudent(found), role: 'student' }, isAdmin: false });
+                    applyStudentLogin(set, found);
                     return true;
                 }
+
                 return false;
             },
 
-            loginAdmin: (adminId, password) => {
+            loginAdmin: async (adminId, password) => {
+                try {
+                    const response = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: adminId, password })
+                    });
+                    const data = await response.json();
+                    
+                    if (data.success && data.user) {
+                        const role = data.user.role;
+                        if (role === 'admin') {
+                            applyAdminLogin(set, adminId, data.user.name || '관리자');
+                            return true;
+                        } else if (role === 'subadmin') {
+                            applySubAdminLogin(set, data.user);
+                            return true;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Admin login error:', error);
+                }
+
                 const defaultAdmin = get().adminCredentials || DEFAULT_ADMIN_CREDENTIALS;
                 if (adminId === defaultAdmin.adminId && password === defaultAdmin.password) {
-                    set({ user: { adminId, name: '관리자', role: 'admin' }, isAdmin: true });
+                    applyAdminLogin(set, adminId, '관리자');
                     return true;
                 }
-                // 서브관리자 로그인 확인
+
                 const sub = get().subAdmins.find(s => s.adminId === adminId && s.password === password);
                 if (sub) {
-                    const normalizedSub = normalizeSubAdmin(sub);
-                    set({
-                        user: {
-                            adminId: normalizedSub.adminId,
-                            name: normalizedSub.name,
-                            role: 'subadmin',
-                            courseIds: normalizedSub.courseIds,
-                            permissions: normalizedSub.permissions,
-                        },
-                        isAdmin: true
-                    });
+                    applySubAdminLogin(set, sub);
                     return true;
                 }
+
                 return false;
             },
 
             logout: () => set({ user: null, isAdmin: false }),
+
+            setAllStudents: (students) => set({
+                registeredStudents: students.map(normalizeStudent)
+            }),
 
             changeAdminPassword: (currentPassword, newPassword) => {
                 const adminCredentials = get().adminCredentials || DEFAULT_ADMIN_CREDENTIALS;

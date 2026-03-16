@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/useAuthStore';
 import { Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Button, Input } from "@heroui/react";
@@ -11,6 +11,7 @@ export default function StudentLoginPage() {
     const [studentId, setStudentId] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [showChangePw, setShowChangePw] = useState(false);
     const [cpStudentId, setCpStudentId] = useState('');
@@ -20,7 +21,7 @@ export default function StudentLoginPage() {
     const [cpMsg, setCpMsg] = useState('');
     const [cpSuccess, setCpSuccess] = useState(false);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
@@ -29,7 +30,11 @@ export default function StudentLoginPage() {
             return;
         }
 
-        if (loginStudent(studentId.trim(), password)) {
+        setIsSubmitting(true);
+        const ok = await loginStudent(studentId.trim(), password);
+        setIsSubmitting(false);
+
+        if (ok) {
             navigate('/dashboard');
             return;
         }
@@ -167,9 +172,9 @@ export default function StudentLoginPage() {
                             {error && <p className="text-sm text-red-500 font-medium">{error}</p>}
 
                             {/* Primary Button */}
-                            <button className="mt-2 w-full bg-primary hover:bg-secondary text-white font-bold text-lg h-12 rounded-xl shadow-lg shadow-primary/25 hover:shadow-secondary/40 transition-all duration-300 transform active:scale-[0.98] flex items-center justify-center gap-2 group">
+                            <button disabled={isSubmitting} className="mt-2 w-full bg-primary hover:bg-secondary text-white font-bold text-lg h-12 rounded-xl shadow-lg shadow-primary/25 hover:shadow-secondary/40 transition-all duration-300 transform active:scale-[0.98] flex items-center justify-center gap-2 group disabled:cursor-not-allowed disabled:opacity-60">
                                 <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">login</span>
-                                <span>Log In</span>
+                                <span>{isSubmitting ? 'Signing In...' : 'Log In'}</span>
                             </button>
 
 
@@ -186,21 +191,57 @@ export default function StudentLoginPage() {
                 </div>
             </div>
 
-            <Modal isOpen={showChangePw} onClose={resetChangePwModal} placement="center" backdrop="blur">
+            <Modal isOpen={showChangePw} onClose={resetChangePwModal} placement="center" backdrop="blur" classNames={{ base: "bg-white dark:bg-[#1a2c33] border border-slate-200 dark:border-white/10" }}>
                 <ModalContent>
                     <ModalHeader>
-                        <span className="flex items-center gap-2"><KeyRound size={18} /> Change Password</span>
+                        <span className="flex items-center gap-2 text-slate-900 dark:text-white"><KeyRound size={18} /> 비밀번호 변경</span>
                     </ModalHeader>
-                    <ModalBody className="space-y-3">
-                        <Input label="Student ID" value={cpStudentId} onValueChange={setCpStudentId} variant="bordered" />
-                        <Input label="Old Password" type="password" value={cpOldPw} onValueChange={setCpOldPw} variant="bordered" />
-                        <Input label="New Password" type="password" value={cpNewPw} onValueChange={setCpNewPw} variant="bordered" />
-                        <Input label="Confirm New Password" type="password" value={cpConfirmPw} onValueChange={setCpConfirmPw} variant="bordered" />
-                        {cpMsg && <p className={`text-sm ${cpSuccess ? 'text-green-500' : 'text-red-500'}`}>{cpMsg}</p>}
+                    <ModalBody className="space-y-4 py-4">
+                        <div className="space-y-1.5">
+                            <label className="text-slate-700 dark:text-slate-200 text-sm font-bold block">학생 ID (User ID)</label>
+                            <input 
+                                className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-[#25363d] px-4 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                                type="text"
+                                value={cpStudentId} 
+                                onChange={(e) => setCpStudentId(e.target.value)} 
+                                placeholder="아이디를 입력하세요"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-slate-700 dark:text-slate-200 text-sm font-bold block">현재 비밀번호</label>
+                            <input 
+                                className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-[#25363d] px-4 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                                type="password" 
+                                value={cpOldPw} 
+                                onChange={(e) => setCpOldPw(e.target.value)} 
+                                placeholder="현재 사용 중인 비밀번호"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-slate-700 dark:text-slate-200 text-sm font-bold block">새로운 비밀번호</label>
+                            <input 
+                                className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-[#25363d] px-4 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                                type="password" 
+                                value={cpNewPw} 
+                                onChange={(e) => setCpNewPw(e.target.value)} 
+                                placeholder="새 비밀번호 (4자리 이상)"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-slate-700 dark:text-slate-200 text-sm font-bold block">새로운 비밀번호 확인</label>
+                            <input 
+                                className="w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-[#25363d] px-4 py-3 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
+                                type="password" 
+                                value={cpConfirmPw} 
+                                onChange={(e) => setCpConfirmPw(e.target.value)} 
+                                placeholder="새 비밀번호를 한 번 더 입력"
+                            />
+                        </div>
+                        {cpMsg && <p className={`text-sm font-semibold mt-2 ${cpSuccess ? 'text-green-500' : 'text-red-500'}`}>{cpMsg}</p>}
                     </ModalBody>
                     <ModalFooter>
-                        <Button variant="flat" onPress={resetChangePwModal}>Close</Button>
-                        {!cpSuccess && <Button color="primary" onPress={handleChangePassword}>Change</Button>}
+                        <Button variant="light" className="text-slate-600 dark:text-slate-300" onPress={resetChangePwModal}>닫기</Button>
+                        {!cpSuccess && <Button color="primary" onPress={handleChangePassword}>변경하기</Button>}
                     </ModalFooter>
                 </ModalContent>
             </Modal>

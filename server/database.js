@@ -74,6 +74,14 @@ function initializeDatabase() {
             )
         `);
 
+        db.run(
+            `
+                INSERT OR IGNORE INTO users (id, password, name, role)
+                VALUES (?, ?, ?, ?)
+            `,
+            ['admin', 'admin1234', '관리자', 'admin']
+        );
+
         console.log('Database tables initialized.');
     });
 }
