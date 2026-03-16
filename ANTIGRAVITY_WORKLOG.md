@@ -1232,3 +1232,29 @@ Copy this block for every new entry:
 
 ### Notes
 - `server/node_modules` remained untracked because the repo-level `node_modules` ignore rule already covers nested dependency folders.
+
+## 2026-03-16 - Switch GitHub Login To aidskaan And Push
+
+### Request
+- Re-login for GitHub pushes and permanently switch the machine identity from `techitsoar` to `aidskaan`.
+- Push the current branch to `https://github.com/codingsoar/starquest.git`.
+
+### Scope
+- Git identity, cached GitHub credentials, remote URL normalization, and repository push.
+- No product code changes beyond worklog updates.
+
+### Implemented
+- Updated global Git `user.name` to `aidskaan`.
+- Normalized `origin` URL to remove the old embedded username.
+- Removed the old cached `techitsoar` GitHub login and ran a fresh Git Credential Manager login for `aidskaan`.
+- Pushed `main` to `https://github.com/codingsoar/starquest.git` successfully.
+
+### Validation
+- `git config --get --global user.name` -> Success (`aidskaan`)
+- `git push https://github.com/codingsoar/starquest.git main:main` -> Success
+
+### Files
+- `ANTIGRAVITY_WORKLOG.md`
+
+### Notes
+- The existing commit `608955a` was pushed first; this worklog follow-up is being recorded afterward for future handoff continuity.
